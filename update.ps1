@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $here
 
-$src = Join-Path (Split-Path -Parent $here) "04_app\입주기업_심사평가_앱.html"
+$src = Join-Path (Split-Path -Parent $here) "04_app\입주기업_심사평가_앱_새디자인.html"
 if (-not (Test-Path $src)) {
     Write-Host "[오류] 원본 파일을 찾을 수 없습니다: $src" -ForegroundColor Red
     exit 1
