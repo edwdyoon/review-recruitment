@@ -28,6 +28,14 @@ git commit -m $Message
 Write-Host "[2/3] 커밋 완료: $Message" -ForegroundColor Cyan
 
 git push
+if ($LASTEXITCODE -ne 0) {
+    # 기본 로그인 방식이 안 되면 GitHub CLI(gh) 로그인으로 한 번 더 시도
+    git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push
+}
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[오류] 푸시 실패 — 인터넷 연결 또는 GitHub 로그인(gh auth login)을 확인하세요. 커밋은 로컬에 남아 있어 다시 실행하면 됩니다." -ForegroundColor Red
+    exit 1
+}
 Write-Host "[3/3] 푸시 완료" -ForegroundColor Green
 Write-Host ""
 Write-Host "1~2분 후 반영됩니다: https://edwdyoon.github.io/review-recruitment/" -ForegroundColor Green
