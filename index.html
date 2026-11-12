@@ -2452,8 +2452,15 @@ async function srvPullForEvaluator(){
 function srvPendingList(){
   const auth = srvEvalAuth();
   if(!auth) return [];
-  return DB.evaluations.filter(e => e._srv && e._synced === false && e.evaluator === auth.name);
+  return DB.evaluations.filter(e => e._srv && e._synced === false && !e._rejected && e.evaluator === auth.name);
 }
+// 서버가 "배포되지 않은 신청자"라며 거절한 평가(다시 보내도 같은 결과라 자동 재전송 대상에서 뺀다)
+function srvRejectedList(){
+  const auth = srvEvalAuth();
+  if(!auth) return [];
+  return DB.evaluations.filter(e => e._srv && e._synced === false && e._rejected && e.evaluator === auth.name);
+}
+function srvIsNotPublished(msg){ return /배포되지 않은 신청자/.test(String(msg || '')); }
 
 async function srvPushPending(){
   const auth = srvEvalAuth();
@@ -2464,14 +2471,24 @@ async function srvPushPending(){
     for(const e of srvPendingList()){
       const ap = DB.applicants.find(a => a.id === e.applicantId);
       const exam = ap ? applicantExamType(ap) : currentExamType;
+      // 담당자 PC 원본(id_N)을 고른 경우에도 배포 식별값(sid)으로 보낸다
+      const sid = (ap && ap.sid) || e.applicantId;
       try{
         await srvCall('saveEval', Object.assign({ exam, evaluation: {
-          applicantSid: e.applicantId, round: e.round, scores: e.scores, notes: e.notes, opinion: e.opinion, date: e.date
+          applicantSid: sid, round: e.round, scores: e.scores, notes: e.notes, opinion: e.opinion, date: e.date
         } }, auth));
         e._synced = true;
+        if(e.applicantId !== sid && DB.applicants.some(a => a._srv && a.id === sid)){
+          e.applicantId = sid; e.id = 'sv_' + sid + '_' + e.round;   // 배포본 신청자에 다시 연결
+        }
         saveDB();
         srvLastError = '';
       }catch(err){
+        if(srvIsNotPublished(err.message)){   // 이 건만 보류하고 나머지는 계속 보낸다
+          e._rejected = true;
+          saveDB();
+          continue;
+        }
         srvLastError = err.message;
         break;
       }
@@ -2493,11 +2510,36 @@ function srvRenderStatus(){
   if(!el) return;
   if(!srvOn() || !srvEvalAuth()){ el.className = 'srv-sync'; el.textContent = ''; return; }
   const n = srvPendingList().length;
+  const rj = srvRejectedList().length;
   if(srvBusy){ srvSetStatus('busy', `서버 전송 중… (${n}건)`); return; }
-  if(n === 0 && !srvLastError){ srvSetStatus('ok', '✅ 서버 저장 완료'); return; }
+  if(n === 0 && rj === 0 && !srvLastError){ srvSetStatus('ok', '✅ 서버 저장 완료'); return; }
   el.className = 'srv-sync warn';
-  el.innerHTML = `⚠ ${n ? '서버 미전송 ' + n + '건' : '서버 오류'}${srvLastError ? ' — ' + escapeHtml(srvLastError) : ''}`
-    + ` <button type="button" class="secondary small" onclick="${n ? 'srvPushPending()' : 'srvPullForEvaluator()'}">다시 시도</button>`;
+  let html = '';
+  if(n || srvLastError){
+    html += `⚠ ${n ? '서버 미전송 ' + n + '건' : '서버 오류'}${srvLastError ? ' — ' + escapeHtml(srvLastError) : ''}`
+      + ` <button type="button" class="secondary small" onclick="${n ? 'srvPushPending()' : 'srvPullForEvaluator()'}">다시 시도</button>`;
+  }
+  if(rj){
+    html += `${html ? '<br>' : ''}⚠ 전송 불가 ${rj}건 — 담당자가 배포한 접수리스트에 없는 신청자입니다.`
+      + ` <button type="button" class="secondary small" onclick="srvRetryRejected()">목록 새로고침 후 다시 시도</button>`
+      + ` <button type="button" class="danger small" onclick="srvDiscardRejected()">전송 불가 평가 삭제</button>`;
+  }
+  el.innerHTML = html;
+}
+
+async function srvRetryRejected(){
+  srvRejectedList().forEach(e => { delete e._rejected; });
+  saveDB();
+  await srvPullForEvaluator();   // 최신 배포 목록을 받은 뒤 다시 전송
+}
+function srvDiscardRejected(){
+  const list = srvRejectedList();
+  if(!list.length) return;
+  if(!confirm(`서버로 보낼 수 없는 평가 ${list.length}건을 이 기기에서 삭제할까요?\n(담당자에게 접수리스트 배포를 요청한 뒤 다시 평가하면 됩니다.)`)) return;
+  DB.evaluations = DB.evaluations.filter(e => list.indexOf(e) < 0);
+  saveDB();
+  srvRerenderAll();
+  srvRenderStatus();
 }
 
 /* ---- 담당자 ---- */
@@ -2752,6 +2794,12 @@ if(srvOn()){
     const applicantId = document.getElementById('ev_applicant').value;
     const round = document.getElementById('ev_round').value;
     const evaluator = document.getElementById('ev_evaluator').value.trim();
+    const picked = DB.applicants.find(a => a.id === applicantId);
+    if(picked && !picked._srv){
+      alert('이 신청자는 담당자가 배포한 목록에 없습니다. 신청자 목록을 새로 불러옵니다.\n목록에서 다시 선택한 뒤 저장해 주세요.');
+      srvPullForEvaluator();
+      return;
+    }
     const find = () => DB.evaluations.find(e => e.applicantId === applicantId && String(e.round) === String(round) && e.evaluator === evaluator);
     const before = JSON.stringify(find() || null);
     _saveEvaluation_srv();
@@ -2782,6 +2830,21 @@ if(srvOn()){
       el.textContent = '담당자 로그인 중 (위원 평가 입력은 위원 로그인 필요)';
       el.classList.remove('unset');
     }
+  };
+
+  // 위원으로 로그인한 동안에는 신청자 선택 목록에 "서버 배포본"만 보인다
+  // (담당자 PC에서 위원으로 시험할 때 같은 기업이 원본·배포본으로 두 번 나오는 것을 막음)
+  const _renderApplicantOptions_srv = renderApplicantOptions;
+  renderApplicantOptions = function(){
+    _renderApplicantOptions_srv();
+    if(!srvEvalAuth()) return;
+    const sel = document.getElementById('ev_applicant');
+    Array.from(sel.options).forEach(opt => {
+      if(!opt.value) return;
+      const a = DB.applicants.find(x => x.id === opt.value);
+      if(!a || !a._srv) opt.remove();
+    });
+    if(sel.value && !Array.from(sel.options).some(o => o.value === sel.value)) sel.value = '';
   };
 
   // 접수리스트를 고치면 배포 대상 건수 갱신
