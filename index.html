@@ -425,6 +425,13 @@
       <span class="muted" id="srvImportInfo"></span>
     </div>
     <div id="srvImportTable"></div>
+
+    <h3>4. 전체 초기화</h3>
+    <p class="hint">시험 운영 뒤나 새 심사를 시작할 때 사용합니다. <b>신규·연장·승급 모든 분류</b>의 위원 목록·접수리스트·평가결과를 서버(두레이)와 이 브라우저에서 모두 지웁니다. 두레이 파일은 휴지통으로 옮겨져 필요하면 복원할 수 있습니다. 예전 접속코드는 모두 쓸 수 없게 되며, 위원 기기에 남은 사본은 다음 접속 때 자동으로 지워집니다.</p>
+    <div class="srv-row">
+      <button type="button" class="danger" onclick="srvResetAll()">전체 초기화</button>
+      <span class="muted" id="srvResetInfo"></span>
+    </div>
   </div>
 
   <!-- ============ 1. 접수리스트 등록 (상단) ============ -->
@@ -2418,6 +2425,9 @@ async function srvPullForEvaluator(){
     const my = await srvCall('getMyEvals', Object.assign({ exam }, auth));
     DB.applicants = DB.applicants.filter(a => !(a._srv && applicantExamType(a) === exam));
     (ap.applicants || []).forEach(x => DB.applicants.push(Object.assign({}, x, { id: x.sid, examType: exam, _srv: true })));
+    // 이미 전송된 이 분류의 사본은 서버 내용으로 바꾼다(서버에서 지워진 평가가 기기에 남지 않도록). 미전송 평가는 유지
+    const prefix = SRV_EXAM_CODE[exam] + '_';
+    DB.evaluations = DB.evaluations.filter(e => !(e._srv && e._synced !== false && e.evaluator === auth.name && String(e.applicantId).indexOf(prefix) === 0));
     (my.evals || []).forEach(x => {
       const id = 'sv_' + x.applicantSid + '_' + x.round;
       const rec = { id, applicantId: x.applicantSid, round: Number(x.round), evaluator: auth.name,
@@ -2433,6 +2443,7 @@ async function srvPullForEvaluator(){
     if(!(ap.applicants || []).length) srvSetStatus('warn', '담당자가 아직 접수리스트를 배포하지 않았습니다.');
     await srvPushPending();
   }catch(e){
+    if(srvIsAuthGone(e.message)){ srvForceLogout(); return; }
     srvLastError = e.message;
     srvRenderStatus();
   }
@@ -2470,6 +2481,7 @@ async function srvPushPending(){
     srvRenderStatus();
     renderMyEvalResults();
   }
+  if(srvIsAuthGone(srvLastError)) srvForceLogout();
 }
 
 function srvSetStatus(kind, text){
@@ -2634,6 +2646,55 @@ async function srvImportAll(){
     info.textContent = `✅ ${added}건 불러옴` + (restored ? ` · 서버 배포 목록에서 신청자 ${restored}건을 접수리스트에 추가` : '') + (missing ? ` · ⚠ 이 화면의 접수리스트에 없는 신청자 결과 ${missing}건은 제외(접수리스트를 고친 뒤 재배포했는지 확인)` : '');
     document.getElementById('srvImportTable').innerHTML = `<table style="margin-top:10px;"><thead><tr><th>번호</th><th>위원</th><th>1차 평가 건수</th><th>2차 평가 건수</th><th>마지막 저장</th></tr></thead><tbody>${rows.join('') || '<tr><td colspan="5" class="empty">등록된 위원이 없습니다.</td></tr>'}</tbody></table>`;
   }catch(e){ info.textContent = '⚠ ' + e.message; }
+}
+
+async function srvResetAll(){
+  const typed = prompt('신규·연장·승급 모든 분류의 위원 목록·접수리스트·평가결과를\n서버(두레이)와 이 브라우저에서 모두 지웁니다.\n\n계속하려면 "초기화"라고 입력하세요.');
+  if(typed === null) return;
+  if(typed.trim() !== '초기화'){ alert('"초기화"라고 정확히 입력해야 진행됩니다. 아무것도 지우지 않았습니다.'); return; }
+  const info = document.getElementById('srvResetInfo');
+  info.textContent = '초기화 중…';
+  let r;
+  try{
+    r = await srvCall('adminResetAll', { adminPw: srvAdminPw(), confirm: '초기화' });
+  }catch(e){
+    info.textContent = '⚠ ' + e.message + (/알 수 없는 요청/.test(e.message) ? ' — 서버(Apps Script) 코드를 최신 Code.gs로 갱신해야 합니다.' : '');
+    return;
+  }
+  // 이 브라우저의 자료도 모두 비운다(예전 오프라인 시험 자료 포함)
+  DB = { applicants: [], evaluations: [], seq: 0 };
+  saveDB();
+  localStorage.removeItem(CONFIRMED_EVALUATOR_KEY);
+  srvSetSession(null);
+  srvEvaluatorsDraft = [];
+  srvEvalDirty = false;
+  document.getElementById('ev_evaluator').value = '';
+  document.getElementById('srvImportTable').innerHTML = '';
+  document.getElementById('srvImportInfo').textContent = '';
+  document.getElementById('srvPublishInfo').textContent = '';
+  document.getElementById('srvEvalInfo').textContent = '';
+  applyConfirmedEvaluatorUI();
+  srvRenderEvaluators();
+  srvRerenderAll();
+  srvApplyUI();
+  info.textContent = `✅ 초기화 완료 — 두레이 파일 ${r.moved}개를 휴지통으로 옮기고, 이 브라우저의 자료를 비웠습니다.`;
+}
+
+// 담당자가 위원 목록을 바꾸거나 초기화해서 이 기기의 접속코드가 더 이상 맞지 않을 때: 로그아웃하고 사본 삭제
+function srvIsAuthGone(msg){ return /위원명 또는 접속코드가 맞지 않습니다/.test(String(msg || '')); }
+function srvForceLogout(){
+  DB.applicants = DB.applicants.filter(a => !a._srv);
+  DB.evaluations = DB.evaluations.filter(e => !e._srv);
+  saveDB();
+  srvSetSession(null);
+  localStorage.removeItem(CONFIRMED_EVALUATOR_KEY);
+  document.getElementById('ev_evaluator').value = '';
+  srvLastError = '';
+  applyConfirmedEvaluatorUI();
+  srvRerenderAll();
+  srvApplyUI();
+  alert('로그인 정보가 바뀌어 로그아웃되었습니다.\n담당자에게 받은 위원명과 접속코드로 다시 로그인해 주세요.');
+  showPage('guide');
 }
 
 /* ---- 화면 상태 ---- */
