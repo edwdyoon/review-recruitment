@@ -199,6 +199,8 @@
   #srvAdminPanel{border-color:#c9c5f3;background:#fcfcff;}
   #srvAdminPanel h3{margin-top:22px;}
   #srvEvalTbody code{font-size:14px;font-weight:700;letter-spacing:1px;}
+  #srvImportTable details summary{cursor:pointer;color:#e5484d;font-weight:600;}
+  #srvImportTable .srv-miss{margin-top:6px;font-size:12px;line-height:1.7;color:#444;max-width:420px;word-break:keep-all;}
   @media (max-width: 960px){ .hero-fields.srv-mode{grid-template-columns:1fr;} }
 
   /* ---- 좁은 화면 ---- */
@@ -2668,8 +2670,18 @@ async function srvImportAll(){
     DB.evaluations = DB.evaluations.filter(e => !(e._fromServer && e._exam === exam));
     let added = 0, missing = 0;
     const rows = [];
+    // 대상(모수) = 서버에 배포된 이 분류의 신청자 전체. 배포 목록이 없으면 이 화면의 접수리스트로 대신함
+    const targets = sortByTrackOrder(((r.applicants || []).length ? r.applicants.map(x => bySid[x.sid]).filter(Boolean)
+                     : DB.applicants.filter(a => !a._srv && applicantExamType(a) === exam)), a => a.track);
+    const targetSids = {};
+    targets.forEach(a => { targetSids[a.sid || a.id] = true; });
+    const total = targets.length;
+    const cell = (done) => {
+      const cls = total && done >= total ? 'final-pass' : 'final-fail';
+      return `<td class="${cls}">${done}/${total}</td>`;
+    };
     (r.results || []).forEach(res => {
-      let c1 = 0, c2 = 0;
+      const doneByRound = { 1: {}, 2: {} };
       (res.evals || []).forEach(x => {
         const a = bySid[x.applicantSid];
         if(!a){ missing++; return; }
@@ -2678,15 +2690,24 @@ async function srvImportAll(){
           round: Number(x.round), evaluator: res.name, scores: x.scores || {}, notes: x.notes || {},
           opinion: x.opinion || '', date: x.date || '', _fromServer: true, _exam: exam });
         added++;
-        if(Number(x.round) === 1) c1++; else c2++;
+        if(targetSids[x.applicantSid] && doneByRound[Number(x.round)]) doneByRound[Number(x.round)][x.applicantSid] = true;
       });
-      rows.push(`<tr><td>${escapeHtml(res.evaluatorId)}</td><td>${escapeHtml(res.name)}</td><td>${c1}</td><td>${c2}</td>
+      const c1 = Object.keys(doneByRound[1]).length, c2 = Object.keys(doneByRound[2]).length;
+      const label = a => `[${escapeHtml(a.track)}] ${escapeHtml(a.company)}`;
+      const miss1 = targets.filter(a => !doneByRound[1][a.sid]).map(label);
+      const miss2 = targets.filter(a => !doneByRound[2][a.sid]).map(label);
+      const missHtml = (miss1.length || miss2.length)
+        ? `<details><summary>1차 ${miss1.length}건 · 2차 ${miss2.length}건</summary>`
+          + `<div class="srv-miss"><b>1차</b> ${miss1.join(', ') || '없음'}<br><b>2차</b> ${miss2.join(', ') || '없음'}</div></details>`
+        : '<span class="final-pass">없음</span>';
+      rows.push(`<tr><td>${escapeHtml(res.evaluatorId)}</td><td>${escapeHtml(res.name)}</td>${cell(c1)}${cell(c2)}
+                 <td class="left">${missHtml}</td>
                  <td>${res.updatedAt ? new Date(res.updatedAt).toLocaleString('ko-KR') : '<span class="muted">아직 없음</span>'}</td></tr>`);
     });
     saveDB();
     srvRerenderAll();
-    info.textContent = `✅ ${added}건 불러옴` + (restored ? ` · 서버 배포 목록에서 신청자 ${restored}건을 접수리스트에 추가` : '') + (missing ? ` · ⚠ 이 화면의 접수리스트에 없는 신청자 결과 ${missing}건은 제외(접수리스트를 고친 뒤 재배포했는지 확인)` : '');
-    document.getElementById('srvImportTable').innerHTML = `<table style="margin-top:10px;"><thead><tr><th>번호</th><th>위원</th><th>1차 평가 건수</th><th>2차 평가 건수</th><th>마지막 저장</th></tr></thead><tbody>${rows.join('') || '<tr><td colspan="5" class="empty">등록된 위원이 없습니다.</td></tr>'}</tbody></table>`;
+    info.textContent = `✅ ${added}건 불러옴 · 평가 대상 신청자 ${total}명` + (restored ? ` · 서버 배포 목록에서 신청자 ${restored}건을 접수리스트에 추가` : '') + (missing ? ` · ⚠ 이 화면의 접수리스트에 없는 신청자 결과 ${missing}건은 제외(접수리스트를 고친 뒤 재배포했는지 확인)` : '');
+    document.getElementById('srvImportTable').innerHTML = `<table style="margin-top:10px;"><thead><tr><th>번호</th><th>위원</th><th>1차 평가<br><span class="muted">평가건수/대상건수</span></th><th>2차 평가<br><span class="muted">평가건수/대상건수</span></th><th>미평가 신청자</th><th>마지막 저장</th></tr></thead><tbody>${rows.join('') || '<tr><td colspan="6" class="empty">등록된 위원이 없습니다.</td></tr>'}</tbody></table>`;
   }catch(e){ info.textContent = '⚠ ' + e.message; }
 }
 
@@ -2857,6 +2878,27 @@ if(srvOn()){
   if(srvEvalAuth()) srvPullForEvaluator();
   window.addEventListener('online', () => { if(srvEvalAuth()) srvPushPending(); });
 }
+
+/* ---- Enter 키로 로그인 / 위원 추가 (한글 입력 조합 중인 Enter는 무시) ---- */
+function onEnter(id, fn){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.addEventListener('keydown', e => {
+    if(e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+    e.preventDefault();
+    fn();
+  });
+}
+function enterEvaluatorLogin(){
+  const btn = document.getElementById('confirmEvaluatorBtn');
+  // 이미 로그인(확정)된 상태에서 Enter를 눌러 로그아웃되는 일이 없도록, 로그인 전일 때만 동작
+  const loggedIn = srvOn() ? !!srvSession() : !!getConfirmedEvaluator();
+  if(loggedIn || btn.disabled) return;
+  btn.click();
+}
+['ev_evaluator', 'srv_code', 'ev_date'].forEach(id => onEnter(id, enterEvaluatorLogin));
+onEnter('srv_admin_pw', () => { if(!srvIsAdmin()) srvAdminLogin(); });
+onEnter('srvNewEvalName', () => srvAddEvaluator());
 </script>
 </body>
 </html>
