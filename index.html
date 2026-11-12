@@ -309,10 +309,10 @@
       <div id="confirmedEvaluatorStatus"></div>
       <p class="privacy" id="privacyNote"><b>*개인정보처리 :</b><br>입력한 이름·점수 등 모든 정보는 이 컴퓨터의 브라우저에만 저장되며, 외부 서버로 전송되거나 제3자에게 제공되지 않습니다.</p>
       <div class="srv-admin-box" id="srvAdminBox" style="display:none;">
-        <span class="srv-admin-label">담당자</span>
+        <span class="srv-admin-label">관리자</span>
         <span id="srvAdminLoginArea">
-          <input type="password" id="srv_admin_pw" placeholder="담당자 비밀번호" autocomplete="current-password">
-          <button type="button" class="secondary small" onclick="srvAdminLogin()">담당자 로그인</button>
+          <input type="password" id="srv_admin_pw" placeholder="관리자 비밀번호" autocomplete="current-password">
+          <button type="button" class="secondary small" onclick="srvAdminLogin()">관리자 로그인</button>
         </span>
         <span id="srvAdminLoggedArea" style="display:none;">
           <b>로그인됨</b> — 평가하기 탭에서 위원 관리·접수리스트 배포·결과 불러오기를 할 수 있습니다.
@@ -2556,7 +2556,7 @@ function srvDiscardRejected(){
 /* ---- 담당자 ---- */
 async function srvAdminLogin(){
   const pw = document.getElementById('srv_admin_pw').value;
-  if(!pw){ alert('담당자 비밀번호를 입력하세요.'); return; }
+  if(!pw){ alert('관리자 비밀번호를 입력하세요.'); return; }
   try{
     await srvCall('adminLogin', { adminPw: pw });
     srvSetAdminPw(pw);
@@ -2810,7 +2810,7 @@ if(srvOn()){
   // 관리자 PIN(소스에 보이는 값) 대신 서버에서 확인한 담당자 로그인으로 판단
   requestMasterPin = function(actionLabel){
     if(srvIsAdmin()) return true;
-    alert(`${actionLabel}은(는) 담당자만 할 수 있습니다.\n"심사 안내" 탭 아래쪽에서 담당자 로그인을 하세요.`);
+    alert(`${actionLabel}은(는) 관리자만 할 수 있습니다.\n"심사 안내" 탭 아래쪽에서 관리자 로그인을 하세요.`);
     return false;
   };
 
@@ -2818,7 +2818,7 @@ if(srvOn()){
   const _saveEvaluation_srv = saveEvaluation;
   saveEvaluation = function(){
     if(!srvEvalAuth()){
-      alert(srvIsAdmin() ? '담당자 화면에서는 평가를 입력할 수 없습니다. 위원으로 로그인해 주세요.' : '먼저 "심사 안내" 탭에서 위원명과 접속코드로 로그인하세요.');
+      alert(srvIsAdmin() ? '관리자 화면에서는 평가를 입력할 수 없습니다. 위원으로 로그인해 주세요.' : '먼저 "심사 안내" 탭에서 위원명과 접속코드로 로그인하세요.');
       return;
     }
     const applicantId = document.getElementById('ev_applicant').value;
@@ -2857,7 +2857,7 @@ if(srvOn()){
     _updateEvaluatorBar_srv();
     if(srvIsAdmin() && !srvSession()){
       const el = document.getElementById('barEvaluatorName');
-      el.textContent = '담당자 로그인 중 (위원 평가 입력은 위원 로그인 필요)';
+      el.textContent = '관리자 로그인 중 (위원 평가 입력은 위원 로그인 필요)';
       el.classList.remove('unset');
     }
   };
