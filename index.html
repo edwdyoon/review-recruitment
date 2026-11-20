@@ -3828,11 +3828,8 @@ document.getElementById('ev_date').addEventListener('input', updateEvaluatorBar)
 // "수정" 버튼으로 평가 입력 화면 이동 시 평가하기 페이지가 열려 있어야 함
 const _jumpToEditEvaluation = jumpToEditEvaluation;
 jumpToEditEvaluation = function(id){ showPage('eval'); _jumpToEditEvaluation(id); };
-(function(){
-  let start = getConfirmedEvaluator() ? 'eval' : 'guide';
-  try{ const saved = localStorage.getItem(PAGE_KEY); if(saved === 'guide' || saved === 'eval') start = saved; }catch(e){}
-  showPage(start);
-})();
+// 접속(새로고침 포함)하면 항상 "심사 안내"부터 — 로그인 상태는 그대로 유지되고, 로그인 버튼을 누르면 평가하기로 이동
+showPage('guide');
 
 /* =====================================================================
    서버 연동 (Google Apps Script 중계 → 두레이 드라이브 저장)
