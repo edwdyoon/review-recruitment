@@ -177,6 +177,9 @@
   .s1-table td.s1-opt input{width:auto;margin:0;}
   .s1-table tr.s1-on td.s1-opt, .s1-table tr.s1-on td.s1-opt + td{background:#e9e6fd;font-weight:700;color:var(--accent);}
   #stage1Panel, #pdfIntakePanel{border-color:#c9c5f3;}
+  .sig-thumb{height:40px;max-width:160px;background:repeating-conic-gradient(#f2f2f2 0% 25%, #fff 0% 50%) 50%/12px 12px;border:1px solid #ddd;border-radius:4px;}
+  .sigwrap{position:relative;display:inline-block;}
+  .sigwrap img{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);height:34px;max-width:110px;pointer-events:none;}
   /* 1차 서류평가 입력: 종이 평가표처럼 */
   .s1-sheet{border:1px solid #bdb8ee;border-radius:10px;padding:16px 18px;background:#fff;box-shadow:0 1px 0 #ece9fb inset;}
   .s1-title{text-align:center;margin:0 0 10px;line-height:1.5;}
@@ -486,6 +489,17 @@
       <button type="button" class="danger" onclick="srvResetAll()">전체 초기화</button>
       <span class="muted" id="srvResetInfo"></span>
     </div>
+
+    <h3>5. 서명 관리</h3>
+    <p class="hint">담당자 서명 이미지를 등록하고 <b>"적용"을 체크</b>하면 연장·승급 평가표 하단 서명란(<b>1차 평가자(담당매니저)·평가위원(담당)·평가위원(총괄)</b>)에 자동으로 들어갑니다(화면·출력 모두). 같은 서명 위치에 여러 명을 체크하면 평가표에 적힌 이름과 같은 사람의 서명이 들어가고, 같은 이름이 없으면 위쪽에 있는 체크한 서명이 들어갑니다. 위원회 위원(2차) 서명란에는 넣지 않습니다. 서명 이미지는 <b>이 PC의 브라우저에만</b> 저장되며 서버로 보내지 않습니다. 흰 종이에 쓴 서명을 찍은 사진·스캔도 흰 바탕을 자동으로 투명하게 바꿉니다.</p>
+    <div class="srv-row">
+      <input type="text" id="sigName" placeholder="담당자 이름" style="max-width:150px;">
+      <select id="sigRole" style="width:auto;"><option value="staff">담당(담당매니저)</option><option value="chief">총괄</option></select>
+      <input type="file" id="sigFile" accept="image/png,image/jpeg,image/gif,image/webp" style="max-width:260px;">
+      <button type="button" class="secondary" onclick="sigAdd()">서명 등록</button>
+    </div>
+    <div id="sigListBox" style="margin-top:8px;"></div>
+
   </div>
 
   <!-- ============ 연장·승급 1차 평가 (담당자) ============ -->
@@ -2680,7 +2694,11 @@ function renderStage1EvalForm(a, area){
   const s = a.stage1 || null, nm = rpStage1Names(ex, s);
   const space = escapeHtml(rpSpaceName());
   const box = on => on ? '☑' : '☐';
-  const sign = (label, id, val) => `<span>${label} : <input type="text" id="${id}" class="s1-sig" value="${escapeHtml(val)}" placeholder="이름"> (서명)</span>`;
+  // 서명 관리에서 체크한 서명 이미지가 있으면 "(서명)" 자리에 미리 보여줌
+  const sign = (label, id, val, role) => {
+    const sg = sigPick(role, val);
+    return `<span>${label} : <input type="text" id="${id}" class="s1-sig" value="${escapeHtml(val)}" placeholder="이름"> ${sg ? `<span class="sigwrap" title="서명 관리에서 체크한 서명">(서명)<img src="${sg.img}" alt="서명"></span>` : '(서명)'}</span>`;
+  };
   const dateIn = `<span>평가일 : <input type="text" id="s1_date" class="s1-sig" value="${escapeHtml(nm.date)}"></span>`;
   let html;
   if(ex === '연장'){
@@ -2706,7 +2724,7 @@ function renderStage1EvalForm(a, area){
         <tr><th colspan="5" class="left">평가항목(정량평가 100점)_1차평가</th></tr>
         <tr><th style="width:13%;">항 목</th><th style="width:25%;">세부항목</th><th colspan="2">배점기준</th><th style="width:11%;">평가점수</th></tr></thead>
         <tbody>${rows}<tr class="total-line"><td colspan="3"><b>1차 평가 소계 (A)</b></td><td>100</td><td><b><span id="s1total">0</span></b></td></tr></tbody></table>
-      <div class="s1-sign">${dateIn}${sign('1차 평가자(담당매니저)', 's1_evaluator', nm.evaluator)}</div>
+      <div class="s1-sign">${dateIn}${sign('1차 평가자(담당매니저)', 's1_evaluator', nm.evaluator, 'staff')}</div>
       <div class="s1-extra">
         <div><label class="muted">2차 상정 여부</label><select id="s1_refer">${RP_REFER.map(v => `<option value="${v}" ${refer === v ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
         <div style="flex:3;min-width:220px;"><label class="muted">검토의견 (집계표에 표시 · 선택)</label><input type="text" id="s1_opinion" value="${escapeHtml((s && s.opinion) || '')}" placeholder="예: 제출서류 미비로 상정불가"></div>
@@ -2727,7 +2745,7 @@ function renderStage1EvalForm(a, area){
         <td style="width:34%;">자동 판정 : <b id="s1_auto">-</b><br>
           <select id="s1_result" style="margin-top:4px;"><option value="">자동 판정 따름</option><option value="적합">여(○) — 적합으로 지정</option><option value="부적합">부(Ⅹ) — 부적합으로 지정</option></select></td></tr></table>
       <p class="footer-note">* 해당 사항에 V 표시 — 실적 칸에 값을 넣으면 신청 트랙 기준을 충족할 때 V가 자동으로 표시되며, 직접 고칠 수도 있습니다. 업력조건을 충족하면 경영실적과 관계없이 적합입니다(추진계획 승급 자격).</p>
-      <div class="s1-sign">${dateIn}${sign('평가위원(총괄)', 's1_chief', nm.chief)}${sign('평가위원(담당)', 's1_evaluator', nm.evaluator)}</div>
+      <div class="s1-sign">${dateIn}${sign('평가위원(총괄)', 's1_chief', nm.chief, 'chief')}${sign('평가위원(담당)', 's1_evaluator', nm.evaluator, 'staff')}</div>
       <div class="s1-extra"><div style="flex:3;min-width:220px;"><label class="muted">검토의견 (집계표에 표시 · 비워두면 자동 작성)</label><input type="text" id="s1_opinion" value="${escapeHtml((s && s.opinion) || '')}"></div></div>
     </div>`;
   }
@@ -2859,6 +2877,8 @@ const RP_PRINT_CSS = `
     .rp tr.subtot td{background:#f7f7f7;font-weight:bold;}
     .rp .signrow{display:flex;justify-content:flex-end;gap:30px;margin-top:6px;font-size:12.5px;align-items:flex-end;}
     .rp .sig{display:inline-block;min-width:80px;border-bottom:1px solid #111;text-align:center;padding:0 6px;}
+    .sigwrap{position:relative;display:inline-block;}
+    .sigwrap img{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);height:34px;max-width:110px;}
     .rp .opinion{min-height:44px;margin-top:8px;padding:6px 8px;}
     .rp .note{font-size:11px;color:#333;margin:4px 0 0;}
     .rp table.chk td, .rp table.chk th{padding:7px 8px;font-size:12.5px;}
@@ -2887,7 +2907,85 @@ const RP_BASE_PRINT_CSS = `
 function rpInfoTable(a){
   return `<table class="info"><tr><td class="lbl">기업명</td><td>${escapeHtml(a.company)}</td><td class="lbl">대표명</td><td>${escapeHtml(a.ceo)}</td></tr></table>`;
 }
-function rpSign(label, name){ return `<span>${label} : <span class="sig">${escapeHtml(name || '')}</span> (서명)</span>`; }
+// role: 'staff'(담당매니저·평가위원(담당)) / 'chief'(평가위원(총괄)) — 서명 관리에서 체크한 서명 이미지를 "(서명)" 위에 얹음
+function rpSign(label, name, role){
+  const sg = role ? sigPick(role, name) : null;
+  if(!sg) return `<span>${label} : <span class="sig">${escapeHtml(name || '')}</span> (서명)</span>`;
+  return `<span>${label} : <span class="sig">${escapeHtml(name || sg.name)}</span> <span class="sigwrap">(서명)<img src="${sg.img}" alt="서명"></span></span>`;
+}
+
+/* ---- 서명 관리(관리자): 담당자 서명 이미지를 이 PC 브라우저에 저장 ---- */
+const SIG_KEY = 'gbsa_signatures_v1';
+const SIG_ROLE = { staff:'담당(담당매니저)', chief:'총괄' };
+function sigList(){ try{ const v = JSON.parse(localStorage.getItem(SIG_KEY) || '[]'); return Array.isArray(v) ? v : []; }catch(e){ return []; } }
+function sigSave(list){
+  try{ localStorage.setItem(SIG_KEY, JSON.stringify(list)); return true; }
+  catch(e){ alert('서명 이미지를 저장하지 못했습니다(브라우저 저장 공간 부족). 더 작은 이미지로 등록하세요.'); return false; }
+}
+// 체크한 서명 중 같은 역할 → 평가표에 적힌 이름과 같은 서명 우선, 없으면 첫 번째 체크한 서명
+function sigPick(role, name){
+  if(!role) return null;
+  const on = sigList().filter(s => s.on && s.role === role && s.img);
+  if(!on.length) return null;
+  const key = v => String(v || '').replace(/\s/g, '');
+  return on.find(s => key(s.name) && key(s.name) === key(name)) || on[0];
+}
+// 이미지 → 가로 최대 360·세로 최대 120으로 줄이고 흰 바탕을 투명하게(PNG)
+function sigProcessImage(file){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const sc = Math.min(1, 360 / img.width, 120 / img.height);
+      const w = Math.max(1, Math.round(img.width * sc)), h = Math.max(1, Math.round(img.height * sc));
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, w, h);
+      try{
+        const d = cx.getImageData(0, 0, w, h), p = d.data;
+        for(let i = 0; i < p.length; i += 4){ const v = Math.min(p[i], p[i + 1], p[i + 2]); if(v > 225) p[i + 3] = 0; else if(v > 190) p[i + 3] = Math.round(p[i + 3] * (225 - v) / 35); }
+        cx.putImageData(d, 0, 0);
+      }catch(e){}
+      URL.revokeObjectURL(url);
+      resolve(cv.toDataURL('image/png'));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지를 읽을 수 없습니다. PNG·JPG 파일을 선택하세요.')); };
+    img.src = url;
+  });
+}
+function sigAddData(name, role, img){
+  const list = sigList();
+  const on = !list.some(s => s.on && s.role === role);   // 그 역할의 첫 서명은 바로 적용
+  list.push({ id: 'sg' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, role, img, on });
+  if(sigSave(list)) sigRender();
+}
+async function sigAdd(){
+  const name = $id('sigName').value.trim(), role = $id('sigRole').value, f = $id('sigFile').files[0];
+  if(!name){ alert('서명할 담당자 이름을 입력하세요.'); $id('sigName').focus(); return; }
+  if(!f){ alert('서명 이미지 파일(PNG·JPG)을 선택하세요.'); return; }
+  try{ sigAddData(name, role, await sigProcessImage(f)); $id('sigName').value = ''; $id('sigFile').value = ''; }
+  catch(e){ alert(e.message); }
+}
+function sigUpdate(id, k, v){
+  const list = sigList(), s = list.find(x => x.id === id);
+  if(!s) return;
+  s[k] = v;
+  if(sigSave(list)) sigRender();
+}
+function sigDelete(id){
+  if(!confirm('이 서명 이미지를 삭제할까요?')) return;
+  if(sigSave(sigList().filter(x => x.id !== id))) sigRender();
+}
+function sigRender(){
+  const box = $id('sigListBox');
+  if(!box) return;
+  const list = sigList();
+  box.innerHTML = list.length ? `<table><thead><tr><th style="width:60px;">적용</th><th>이름</th><th>서명 위치</th><th>서명 이미지</th><th>관리</th></tr></thead><tbody>${list.map(s => `<tr>
+      <td><input type="checkbox" ${s.on ? 'checked' : ''} onchange="sigUpdate('${s.id}','on',this.checked)" style="width:auto;"></td>
+      <td><input type="text" value="${escapeHtml(s.name)}" onchange="sigUpdate('${s.id}','name',this.value.trim())" style="max-width:140px;"></td>
+      <td><select onchange="sigUpdate('${s.id}','role',this.value)" style="width:auto;">${Object.keys(SIG_ROLE).map(r => `<option value="${r}" ${s.role === r ? 'selected' : ''}>${SIG_ROLE[r]}</option>`).join('')}</select></td>
+      <td><img src="${s.img}" alt="서명" class="sig-thumb"></td>
+      <td><button type="button" class="danger small" onclick="sigDelete('${s.id}')">삭제</button></td></tr>`).join('')}</tbody></table>`
+    : '<p class="empty">등록된 서명이 없습니다.</p>';
+}
 
 function renewStage1TableHTML(a){
   const def = RENEW_STAGE1[a.track];
@@ -2911,7 +3009,7 @@ function renewStage1TableHTML(a){
       <tr><th colspan="5" class="left">평가항목(정량평가 100점)_1차평가</th></tr>
       <tr><th style="width:13%;">항 목</th><th style="width:27%;">세부항목</th><th colspan="2">배점기준</th><th style="width:11%;">평가점수</th></tr></thead>
     <tbody>${rows}<tr class="subtot"><td colspan="3">1차 평가 소계 (A)</td><td>100</td><td>${s && s.complete ? s.total : ''}</td></tr></tbody></table>
-    <div class="signrow">${rpSign('1차 평가자(담당매니저)', a.stage1 && a.stage1.evaluator)}</div>`;
+    <div class="signrow">${rpSign('1차 평가자(담당매니저)', a.stage1 && a.stage1.evaluator, 'staff')}</div>`;
 }
 function level2Rows(rubric, ev){
   const sc = (ev && ev.scores) || {};
@@ -2986,8 +3084,8 @@ function buildPromoStage1SheetHTML(a){
     <table class="main chk"><tr><td class="left">키움 및 이룸공간 입주를 위한 서류 적합성 평가결과 적합여부</td>
       <td style="width:14%;">여(○) ${box(r && r.result === '적합')}</td><td style="width:14%;">부(Ⅹ) ${box(r && r.result === '부적합')}</td></tr></table>
     <p class="note">* 해당 사항에 V 표시</p>
-    <div class="signrow"><span>평가일 : ${fmtDateKo(s.date)}</span>${rpSign('평가위원(총괄)', s.chief)}</div>
-    <div class="signrow">${rpSign('평가위원(담당)', s.evaluator)}</div>
+    <div class="signrow"><span>평가일 : ${fmtDateKo(s.date)}</span>${rpSign('평가위원(총괄)', s.chief, 'chief')}</div>
+    <div class="signrow">${rpSign('평가위원(담당)', s.evaluator, 'staff')}</div>
   </div>`;
 }
 function rpOpenPrintWindow(title, bodyHtml, landscape){
@@ -3769,6 +3867,8 @@ function registerPdfIntake(){
   ['dragleave','drop'].forEach(evt => dz.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover'); }));
   dz.addEventListener('drop', e => handlePdfFiles(e.dataTransfer.files));
 })();
+
+sigRender();
 
 /* ================= 탭 전환 ================= */
 document.querySelectorAll('.tab-btn').forEach(btn=>{
