@@ -511,6 +511,12 @@
       <input type="file" id="pdfFileInput" accept=".pdf,application/pdf" multiple style="display:none;">
       <div id="pdfLog" class="muted"></div>
     </div>
+    <div class="srv-row" style="margin-top:10px;">
+      <b style="font-size:13.5px;">이미 등록한 접수리스트</b>
+      <button type="button" class="secondary small" onclick="exportRegisteredList()">📊 엑셀 다운로드</button>
+      <button type="button" class="secondary small" onclick="printRegisteredList()">🖨 출력 / PDF 저장</button>
+      <span class="muted">— 아래 "① 접수리스트 등록"에 저장된 기업으로 만듭니다(다시 접속해도 사용 가능).</span>
+    </div>
     <div id="pdfResult"></div>
   </div>
 
