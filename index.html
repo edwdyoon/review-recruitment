@@ -176,7 +176,36 @@
   .s1-table td.s1-opt label{display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;}
   .s1-table td.s1-opt input{width:auto;margin:0;}
   .s1-table tr.s1-on td.s1-opt, .s1-table tr.s1-on td.s1-opt + td{background:#e9e6fd;font-weight:700;color:var(--accent);}
-  #stage1Panel{border-color:#c9c5f3;}
+  #stage1Panel, #pdfIntakePanel{border-color:#c9c5f3;}
+  /* 1차 서류평가 입력: 종이 평가표처럼 */
+  .s1-sheet{border:1px solid #bdb8ee;border-radius:10px;padding:16px 18px;background:#fff;box-shadow:0 1px 0 #ece9fb inset;}
+  .s1-title{text-align:center;margin:0 0 10px;line-height:1.5;}
+  .s1-title small{font-size:13px;color:#666;font-weight:600;}
+  table.s1-info{margin:6px 0 10px;}
+  table.s1-info th{background:#f3f2fb;width:14%;white-space:nowrap;}
+  table.s1-info select{width:auto;min-width:120px;}
+  .s1-hint{font-size:11.5px;font-weight:normal;margin-top:3px;line-height:1.4;}
+  .s1-table td.s1-pts{width:8%;}
+  .s1-promo .s1-crit-on{font-weight:700;color:#222;}
+  .s1-promo .s1-crit-off{color:#aaa;}
+  .s1-promo input[type=number], .s1-promo input[type=text]{width:100%;max-width:180px;padding:5px 6px;}
+  .s1-val{display:inline-flex;align-items:center;gap:4px;}
+  .s1-v{display:inline-flex;align-items:center;gap:4px;margin:0;font-weight:700;cursor:pointer;}
+  .s1-v input{width:auto;margin:0;}
+  .s1-sign{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px 26px;margin-top:12px;font-size:13.5px;align-items:center;}
+  .s1-sign input.s1-sig{width:130px;display:inline-block;padding:4px 6px;border:none;border-bottom:1.5px solid #333;border-radius:0;background:#fbfbff;}
+  .s1-extra{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;padding-top:10px;border-top:1px dashed #ddd;}
+  .s1-extra > div{flex:1;min-width:140px;}
+  .s1-met{font-weight:700;}
+  table.rp-agg td.grp-cell{background:#f6f5fe;vertical-align:middle;}
+  .agg-sheet-title{text-align:center;margin:4px 0 8px;font-size:15px;}
+  /* 신청서 PDF → 접수리스트 */
+  #pdfResult table{min-width:1600px;}
+  #pdfResult table th{white-space:nowrap;}
+  #pdfResult table input{width:100%;min-width:70px;padding:3px 4px;font-size:12px;}
+  #pdfResult table select{width:auto;padding:3px;font-size:12px;}
+  #pdfResult table td{padding:3px 4px;}
+  #pdfResult .pdf-warn{color:#b9770e;font-size:12px;}
   #stage1Form{margin-top:14px;}
 
   /* ---- 페이지 탭 (심사 안내 / 평가하기) ---- */
@@ -464,25 +493,25 @@
     <h2 id="stage1Title">1차 서류심사 (담당자)</h2>
     <p class="hint" id="stage1Hint"></p>
     <div class="inline-select">
-      <div>
-        <label class="muted" id="s1_evaluatorLabel">1차 평가자(담당매니저)</label>
-        <input type="text" id="s1_evaluator" placeholder="예: 이OO">
-      </div>
-      <div id="s1_chiefWrap">
-        <label class="muted">평가위원(총괄)</label>
-        <input type="text" id="s1_chief" placeholder="예: 김OO">
-      </div>
-      <div>
-        <label class="muted">평가일</label>
-        <input type="text" id="s1_date" placeholder="예: 2026-09-28">
-      </div>
       <div style="flex:2;min-width:240px;">
-        <label class="muted">출력 서식의 공간명</label>
+        <label class="muted">평가표·집계표 제목의 공간명</label>
         <input type="text" id="s1_space" placeholder="예: 경기창업혁신공간 북동부권(구리)">
       </div>
     </div>
     <div id="stage1List"></div>
-    <div id="stage1Form"></div>
+  </div>
+
+  <!-- ============ 연장·승급 신청서 PDF → 접수리스트 (관리자) ============ -->
+  <div class="card" id="pdfIntakePanel" style="display:none;">
+    <h2>📄 신청서 PDF로 접수리스트 만들기 (관리자)</h2>
+    <p class="hint">기업들이 낸 <b>연장·승급 신청서 PDF</b>(여러 기업을 합친 파일도 가능)를 넣으면 신청서 내용을 읽어 접수리스트로 정리합니다. 내용을 확인·수정한 뒤 <b>접수리스트 출력</b>, <b>엑셀 다운로드</b>, <b>앱 접수리스트에 등록</b>을 할 수 있습니다. PDF는 이 브라우저 안에서만 읽으며 서버로 보내지 않습니다.</p>
+    <div class="dropzone" id="pdfDropZone">
+      <p>📂 신청서 PDF 파일을 여기로 끌어다 놓으세요</p>
+      <p class="muted">또는 <button type="button" class="secondary small" onclick="document.getElementById('pdfFileInput').click()">PDF 선택</button> · 한글(HWP)에서 PDF로 저장한 신청서 기준(스캔 이미지 PDF는 글자를 읽을 수 없음)</p>
+      <input type="file" id="pdfFileInput" accept=".pdf,application/pdf" multiple style="display:none;">
+      <div id="pdfLog" class="muted"></div>
+    </div>
+    <div id="pdfResult"></div>
   </div>
 
   <!-- ============ 1. 접수리스트 등록 (상단) ============ -->
@@ -899,13 +928,20 @@ const PROMO_CRITERIA = {
   키움: { sales:'1억원 이상 매출여부(전년도 매출액 기준)', invest:'1천만원 이상 투자유치(최근 3년 실적)', employ:'2명 이상 고용 여부(공고일 기준)' },
   이룸: { sales:'5억원 이상 매출여부(전년도 매출액 기준)', invest:'5억원 이상 투자유치(최근 3년 실적)', employ:'4명 이상 고용 여부(공고일 기준)' },
 };
+// 업력조건(추진계획 "승급 자격"): 신청 트랙 업력을 충족하면 경영실적과 관계없이 적합
+const PROMO_AGE = { 키움:'창업 1년 이상 ~ 3년 이내 기업', 이룸:'창업 3년 이상 ~ 7년 이내 기업' };
+// 실적 값을 넣으면 자동으로 V 표시하는 기준(원·명)
+const PROMO_THRESH = { 키움:{ sales:1e8, invest:1e7, employ:2 }, 이룸:{ sales:5e8, invest:5e8, employ:4 } };
+// 집계표(서류심사 및 적합성검토 결과 집계표) 열 이름
+const PROMO_SHORT = { age:'업력', sales:'매출액', invest:'투자액', employ:'고용' };
 const PROMO_TARGETS = { 틔움:['키움','이룸'], 키움:['이룸'] };
+const RP_REFER = ['2차 상정', '상정불가'];
 const EXAM_TRACKS = { 신규:['틔움','키움','이룸'], 연장:['키움','이룸'], 승급:['틔움','키움'] };
 const RENEW_PASS = 120;   // 연장 승인 기준(200점 만점)
 const PROMO_PASS = 60;    // 승급 2차 최저 기준(100점 만점)
 
 // 심사 분류는 신규/연장/승급 3가지. 예전 버전에서 '입주'(또는 값 없음)로 저장된 데이터는 '신규'로 간주한다.
-// 연장·승급의 위원 평가는 2차(발표)만 있다. 1차는 담당자가 신청자별로 입력한다(applicant.stage1).
+// 연장·승급의 위원 평가는 2차(발표)만 있다. 1차는 담당자가 "평가하기 → 평가회차: 1차 서류평가"에서 신청자별로 입력한다(applicant.stage1).
 const RUBRIC_BY_EXAM = {
   신규: RUBRIC,
   연장: { 키움:{ 2:RENEW_R2 }, 이룸:{ 2:RENEW_R2 } },
@@ -1073,6 +1109,7 @@ document.getElementById('intakeForm').addEventListener('submit', function(e){
   if(prevApplicant){
     if(prevApplicant.sid) applicant.sid = prevApplicant.sid;
     if(prevApplicant.stage1) applicant.stage1 = prevApplicant.stage1;
+    if(prevApplicant.apply) applicant.apply = prevApplicant.apply;   // 신청서 PDF에서 읽은 상세(주소·입주기간 등)
   }
   if(editingApplicantId){
     const idx = DB.applicants.findIndex(a=>a.id===editingApplicantId);
@@ -1534,6 +1571,8 @@ function renderEvalForm(){
   area.innerHTML = '';
   if(!applicantId){ area.innerHTML = '<p class="empty">신청자를 먼저 선택하세요.</p>'; return; }
   const applicant = DB.applicants.find(a=>a.id===applicantId);
+  if(!applicant){ area.innerHTML = '<p class="empty">신청자를 먼저 선택하세요.</p>'; return; }
+  if(currentExamType !== '신규' && String(round) === '1'){ renderStage1EvalForm(applicant, area); return; }   // 연장·승급 1차(담당자)
   const rubric = getRubric(applicant.track, round);
   if(!rubric){ area.innerHTML = '<p class="empty">이 트랙·회차의 평가표 서식이 아직 등록되지 않았습니다.</p>'; return; }
   if(rubric.levelForm){ renderLevelEvalForm(applicant, rubric, round, area); return; }   // 연장·승급 2차(등급 선택형)
@@ -2321,7 +2360,7 @@ function colIndexToLetters(idx){
   return s;
 }
 
-function buildSheetXml(rows2D){
+function buildSheetXml(rows2D, merges){
   let rowsXml = '';
   rows2D.forEach((rowArr, rIdx)=>{
     let cellsXml = '';
@@ -2335,17 +2374,18 @@ function buildSheetXml(rows2D){
     });
     rowsXml += `<row r="${rIdx+1}">${cellsXml}</row>`;
   });
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowsXml}</sheetData></worksheet>`;
+  const mergeXml = (merges && merges.length) ? `<mergeCells count="${merges.length}">${merges.map(m => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>` : "";
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowsXml}</sheetData>${mergeXml}</worksheet>`;
 }
 
-function buildXlsxBlob(sheetName, rows2D){
+function buildXlsxBlob(sheetName, rows2D, merges){
   const encoder = new TextEncoder();
   const safeName = String(sheetName).replace(/[:\\\/\?\*\[\]]/g,'_').slice(0,31) || 'Sheet1';
   const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`;
   const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
   const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${escapeXml(safeName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`;
   const workbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`;
-  const sheetXml = buildSheetXml(rows2D);
+  const sheetXml = buildSheetXml(rows2D, merges);
 
   const files = [
     {name:'[Content_Types].xml', data: encoder.encode(contentTypes)},
@@ -2417,11 +2457,12 @@ function exportAggToExcel(){
 const $id = id => document.getElementById(id);
 const RP_META_KEY = 'gbsa_rp_stage1_meta_v1';
 function rpMeta(){ try{ return JSON.parse(localStorage.getItem(RP_META_KEY) || '{}'); }catch(e){ return {}; } }
-function rpSaveMeta(){
-  if(currentExamType === '신규') return;
+// 공간명(출력 서식 제목)과 마지막으로 쓴 서명자 이름을 기억해 다음 평가표에 미리 채운다
+function rpSaveMeta(names){
   const m = rpMeta();
-  m[currentExamType] = { evaluator: $id('s1_evaluator').value.trim(), chief: $id('s1_chief').value.trim(), date: $id('s1_date').value.trim() };
-  m.space = $id('s1_space').value.trim();
+  if(names && currentExamType !== '신규') m[currentExamType] = Object.assign({}, m[currentExamType] || {}, names);
+  const sp = $id('s1_space');
+  if(sp) m.space = sp.value.trim();
   try{ localStorage.setItem(RP_META_KEY, JSON.stringify(m)); }catch(e){}
 }
 function rpSpaceName(){ return rpMeta().space || '경기창업혁신공간'; }
@@ -2440,13 +2481,31 @@ function stage1Total(a){
   def.items.forEach(it => { const v = s.scores[it.key]; if(v != null && v !== ''){ total += Number(v); n++; } });
   return { total, complete: n === def.items.length };
 }
+// 승급 적합: 업력조건 충족 또는 경영실적(매출·투자·고용) 3개 중 1개 이상 충족
+function promoAuto(checks){
+  const met = PROMO_ITEMS.filter(([k]) => checks[k]).length;
+  return { met, age: !!checks.age, auto: (checks.age || met >= 1) ? '적합' : '부적합' };
+}
+function promoOpinion(checks){
+  const hit = Object.keys(PROMO_SHORT).filter(k => checks[k]);
+  if(!hit.length) return '업력, 매출액, 투자액, 고용 미충족';
+  if(hit.length === 1 && hit[0] === 'age') return '창업 업력 충족';
+  return hit.map(k => k === 'employ' ? '고용인원' : PROMO_SHORT[k]).join(', ') + ' 충족';
+}
 function promoResult(a){
   const s = a && a.stage1;
   if(!s || !s.checks) return null;
-  const met = PROMO_ITEMS.filter(([k]) => s.checks[k]).length;
-  const auto = met >= 1 ? '적합' : '부적합';
-  return { met, auto, result: s.result || auto, target: s.target || a.targetTrack || '' };
+  const r = promoAuto(s.checks);
+  const result = s.result || r.auto;
+  return Object.assign(r, { result, target: s.target || a.targetTrack || '', refer: result === '적합' ? '2차 상정' : '상정불가' });
 }
+function promoMetText(p){ return p ? (p.age ? '업력' + (p.met ? ` + 실적 ${p.met}개` : '') : `실적 ${p.met}/3`) + ' 충족' : ''; }
+// 2차 상정 여부: 연장은 담당자가 지정(기본 "2차 상정"), 승급은 적합이면 상정
+function rpRefer(a){
+  if(applicantExamType(a) === '승급'){ const p = promoResult(a); return p ? p.refer : ''; }
+  return (a.stage1 && a.stage1.refer) || '2차 상정';
+}
+function fmtWon(v){ return (v === '' || v == null || isNaN(Number(v))) ? '-' : Number(v).toLocaleString('ko-KR'); }
 
 /* ---- 위원 2차 평가 입력: 등급 선택형 ---- */
 function renderLevelEvalForm(applicant, rubric, round, area){
@@ -2503,22 +2562,15 @@ function syncLevelRadios(){
   });
 }
 
-/* ---- 담당자 1차 평가 화면 ---- */
+/* ---- 담당자 1차 평가: 현황 목록(관리자 화면) ---- */
 function renderStage1Panel(){
   const ex = currentExamType;
   if(ex === '신규') return;
-  const meta = rpMeta(), m = meta[ex] || {};
-  $id('s1_evaluator').value = m.evaluator || '';
-  $id('s1_chief').value = m.chief || '';
-  $id('s1_date').value = m.date || todayStr();
-  $id('s1_space').value = meta.space || '';
-  $id('stage1Title').textContent = ex === '연장' ? '1차 서류심사 (담당자 정량평가 · 100점)' : '1차 서류 적합성 평가 (담당자)';
-  $id('s1_evaluatorLabel').textContent = ex === '연장' ? '1차 평가자(담당매니저)' : '평가위원(담당)';
-  $id('s1_chiefWrap').style.display = ex === '승급' ? '' : 'none';
+  $id('s1_space').value = rpMeta().space || '';
+  $id('stage1Title').textContent = ex === '연장' ? '연장 1차 서류평가 현황 (담당자 정량평가 · 100점)' : '승급 1차 서류 적합성 평가 현황 (담당자)';
   $id('stage1Hint').innerHTML = ex === '연장'
-    ? `연장 신청 기업의 1차 서류심사 점수를 입력합니다(특허·인증, 제규정 준수, 투자실적, 고용, 매출 성장률 — 키움은 "고용충족조건", 이룸은 "신규 고용창출"). 2차 발표평가(위원회) 평점과 합산해 <b>200점 만점 중 ${RENEW_PASS}점 이상이면 연장 승인</b>입니다. 서버를 쓰는 경우 입력 후 "접수리스트 배포"를 다시 누르면 1차 결과도 두레이에 함께 보관됩니다.`
-    : `승급 신청 기업의 서류 적합성을 확인합니다. 신청 트랙 기준 <b>매출액·투자금액·고용인원 중 1개 이상 충족 시 적합</b>이며, 적합 기업만 2차 발표평가 대상입니다. 2차는 <b>${PROMO_PASS}점 이상 고득점순</b>으로 잔여 공실만큼 선정합니다. 서버를 쓰는 경우 입력 후 "접수리스트 배포"를 다시 눌러야 위원 화면에 반영됩니다.`;
-  $id('stage1Form').innerHTML = '';
+    ? `1차 서류평가는 아래 <b>"② 위원 평가 입력" → 평가 회차 "1차 서류평가(담당자)"</b>에서 기업을 골라 평가표 서식 그대로 입력합니다(목록의 "입력" 버튼을 눌러도 바로 열립니다). 키움은 "고용충족조건", 이룸은 "신규 고용창출"로 평가합니다. 2차 발표평가(위원회) 평점과 합산해 <b>200점 만점 중 ${RENEW_PASS}점 이상이면 연장 승인</b>입니다. "상정불가"로 지정한 기업은 위원 평가 목록에서 빠집니다. 서버를 쓰는 경우 입력 후 "접수리스트 배포"를 다시 누르면 1차 결과도 두레이에 함께 보관됩니다.`
+    : `1차 서류 적합성 평가는 아래 <b>"② 위원 평가 입력" → 평가 회차 "1차 서류평가(담당자)"</b>에서 기업을 골라 평가표 서식 그대로 입력합니다(목록의 "입력" 버튼을 눌러도 됩니다). 신청 트랙 기준 <b>업력조건 충족 또는 매출액·투자금액·고용인원 중 1개 이상 충족 시 적합(2차 상정)</b>이며, 적합 기업만 2차 발표평가 대상입니다. 2차는 <b>${PROMO_PASS}점 이상 고득점순</b>으로 잔여 공실만큼 선정합니다. 서버를 쓰는 경우 입력 후 "접수리스트 배포"를 다시 눌러야 위원 화면에 반영됩니다.`;
   renderStage1List();
 }
 
@@ -2526,7 +2578,7 @@ function renderStage1List(){
   const ex = currentExamType, box = $id('stage1List');
   if(ex === '신규'){ box.innerHTML = ''; return; }
   const apps = sortByTrackOrder(DB.applicants.filter(a => !a._srv && applicantExamType(a) === ex));
-  if(!apps.length){ box.innerHTML = '<p class="empty">아래 "① 접수리스트 등록"에서 신청 기업을 먼저 등록하세요.</p>'; return; }
+  if(!apps.length){ box.innerHTML = '<p class="empty">아래 "① 접수리스트 등록"에서 신청 기업을 먼저 등록하세요(신청서 PDF로 한 번에 등록할 수도 있습니다).</p>'; return; }
   let done = 0, rows = '';
   apps.forEach((a, i) => {
     let resultHtml;
@@ -2537,100 +2589,178 @@ function renderStage1List(){
     } else {
       const p = promoResult(a);
       if(p) done++;
-      resultHtml = p ? `<span class="${p.result === '적합' ? 'final-pass' : 'final-fail'}">${p.result}</span> <span class="muted">(${p.met}/3 충족)</span>` : '<span class="final-fail">미입력</span>';
+      resultHtml = p ? `<span class="${p.result === '적합' ? 'final-pass' : 'final-fail'}">${p.result}</span> <span class="muted">(${promoMetText(p)})</span>` : '<span class="final-fail">미입력</span>';
     }
     const has = !!a.stage1;
+    const refer = has ? rpRefer(a) : '';
     rows += `<tr><td>${i + 1}</td>
       <td><span class="badge b-${a.track}">${a.track}</span>${ex === '승급' ? ' → ' + escapeHtml(a.targetTrack || '?') : ''}</td>
       <td class="left">${escapeHtml(a.company)}</td><td>${escapeHtml(a.ceo)}</td>
-      <td>${resultHtml}</td><td>${escapeHtml((a.stage1 && a.stage1.evaluator) || '-')}</td>
-      <td><button type="button" class="small" onclick="openStage1Form('${a.id}')">${has ? '수정' : '입력'}</button>
+      <td>${resultHtml}</td>
+      <td>${refer ? `<span class="${refer === '상정불가' ? 'final-fail' : ''}">${refer}</span>` : '-'}</td>
+      <td>${escapeHtml((a.stage1 && a.stage1.evaluator) || '-')}</td>
+      <td><button type="button" class="small" onclick="rpGoStage1('${a.id}')">${has ? '수정' : '입력'}</button>
           ${has ? `<button type="button" class="secondary small" onclick="printStage1Sheets(['${a.id}'])">출력</button>` : ''}</td></tr>`;
   });
   box.innerHTML = `<div class="toolbar" style="margin-top:6px;"><h3 style="margin:0;">신청 기업 ${apps.length}개사 · 입력 완료 ${done}개사</h3>
       <button type="button" class="secondary small" onclick="printStage1Sheets(null)">🖨 1차 평가표 일괄 출력</button></div>
     <div style="overflow-x:auto;"><table><thead><tr><th>연번</th><th>${ex === '승급' ? '현재 → 신청' : '트랙'}</th><th>기업명</th><th>대표자</th>
-      <th>${ex === '연장' ? '1차 점수(A)' : '적합 여부'}</th><th>${ex === '연장' ? '평가자' : '평가위원(담당)'}</th><th>관리</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <th>${ex === '연장' ? '1차 점수(A)' : '적합 여부'}</th><th>상정 여부</th><th>${ex === '연장' ? '평가자' : '평가위원(담당)'}</th><th>관리</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="muted" id="stage1Msg" style="margin-top:6px;"></div>`;
 }
 
-function openStage1Form(id){
-  const a = DB.applicants.find(x => x.id === id);
-  if(!a) return;
-  const ex = applicantExamType(a), f = $id('stage1Form');
-  const head = `<h3>${ex === '연장' ? '1차 서류심사' : '1차 서류 적합성 평가'} — <span class="badge b-${a.track}">${a.track}</span> ${escapeHtml(a.company)} (${escapeHtml(a.ceo)})</h3>`;
-  const buttons = `<div class="srv-row" style="margin-top:10px;"><button type="button" onclick="saveStage1('${a.id}')">1차 평가 저장</button><button type="button" class="secondary" onclick="closeStage1Form()">닫기</button></div>`;
+// 목록의 "입력/수정" → 위원 평가 입력 화면(평가 회차: 1차 서류평가)으로 이동
+function rpGoStage1(id){
+  const tab = document.querySelector('.tab-btn[data-tab="tab-eval"]');
+  if(tab && !tab.classList.contains('active')) tab.click();
+  if(!Array.from($id('ev_round').options).some(o => o.value === '1')){ alert('1차 서류평가는 관리자 화면에서만 입력할 수 있습니다.'); return; }
+  $id('ev_round').value = '1';
+  $id('ev_track').value = '';
+  renderApplicantOptions();
+  $id('ev_applicant').value = id;
+  renderEvalForm();
+  const area = $id('evalFormArea');
+  if(area.scrollIntoView) area.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+/* ---- 1차 서류평가 입력: 공식 평가표 서식 그대로 ---- */
+function rpStage1Names(ex, s){
+  const m = rpMeta()[ex] || {};
+  return { evaluator: (s && s.evaluator) || m.evaluator || '', chief: (s && s.chief) || m.chief || '', date: (s && s.date) || todayStr() };
+}
+const PROMO_ROWS = [['age', '업력'], ...PROMO_ITEMS];
+function renderStage1EvalForm(a, area){
+  const ex = applicantExamType(a);
+  if(a._srv){ area.innerHTML = '<p class="empty">1차 서류평가는 담당자(관리자) 화면에서 입력합니다. 위원은 2차 발표평가만 입력합니다.</p>'; return; }
+  const s = a.stage1 || null, nm = rpStage1Names(ex, s);
+  const space = escapeHtml(rpSpaceName());
+  const box = on => on ? '☑' : '☐';
+  const sign = (label, id, val) => `<span>${label} : <input type="text" id="${id}" class="s1-sig" value="${escapeHtml(val)}" placeholder="이름"> (서명)</span>`;
+  const dateIn = `<span>평가일 : <input type="text" id="s1_date" class="s1-sig" value="${escapeHtml(nm.date)}"></span>`;
+  let html;
   if(ex === '연장'){
     const def = RENEW_STAGE1[a.track];
-    if(!def){ f.innerHTML = head + '<p class="empty">연장 1차 서식은 키움·이룸만 있습니다. 접수리스트에서 트랙을 확인하세요.</p>'; return; }
-    const sc = (a.stage1 && a.stage1.scores) || {};
-    let rows = '';
-    def.items.forEach(it => {
-      it.options.forEach(([lab, pts], i) => {
-        const on = sc[it.key] != null && Number(sc[it.key]) === pts;
-        rows += '<tr>';
-        if(i === 0) rows += `<td class="group-title left" rowspan="${it.options.length}">${it.label} (${it.max}점)${it.hint ? `<div class="muted" style="font-weight:normal;font-size:11.5px;">${it.hint}</div>` : ''}</td>`;
-        rows += `<td class="left s1-opt"><label><input type="radio" name="s1_${it.key}" value="${pts}" data-key="${it.key}" ${on ? 'checked' : ''}> ${lab}</label></td><td>${pts}</td>`;
-        if(i === 0) rows += `<td rowspan="${it.options.length}"><b id="s1score_${it.key}">-</b></td>`;
-        rows += '</tr>';
-      });
-    });
-    f.innerHTML = head + `<table class="score-table s1-table"><thead><tr><th style="width:26%;">세부항목</th><th>배점기준</th><th style="width:9%;">배점</th><th style="width:11%;">평가점수</th></tr></thead>
-      <tbody>${rows}<tr class="total-line"><td class="left" colspan="3"><b>1차 평가 소계 (A)</b></td><td><b><span id="s1total">0</span></b> / 100</td></tr></tbody></table>` + buttons;
+    if(!def){ area.innerHTML = '<p class="empty">연장 1차 서식은 키움·이룸만 있습니다. 접수리스트에서 트랙을 확인하세요.</p>'; return; }
+    const sc = (s && s.scores) || {};
+    const nRows = def.items.reduce((t, it) => t + it.options.length, 0);
+    let rows = '', first = true;
+    def.items.forEach(it => it.options.forEach(([lab, pts], i) => {
+      const on = sc[it.key] != null && Number(sc[it.key]) === pts;
+      rows += '<tr>';
+      if(first){ rows += `<td class="group-title" rowspan="${nRows}">입주 후<br>경영성과 및<br>제규정준수<br>(100점)</td>`; first = false; }
+      if(i === 0) rows += `<td class="left group-title" rowspan="${it.options.length}">${it.label}(${it.max}점)${it.hint ? `<div class="muted s1-hint">${it.hint}</div>` : ''}</td>`;
+      rows += `<td class="left s1-opt"><label><input type="radio" name="s1_${it.key}" value="${pts}" data-key="${it.key}" ${on ? 'checked' : ''}> ${lab}</label></td><td class="s1-pts">${pts}</td>`;
+      if(i === 0) rows += `<td rowspan="${it.options.length}"><b id="s1score_${it.key}">-</b></td>`;
+      rows += '</tr>';
+    }));
+    const refer = (s && s.refer) || '2차 상정';
+    html = `<div class="s1-sheet">
+      <h3 class="s1-title">『${space}』 입주 연장심사 평가표(${a.track})<br><small>1차 서류평가 (담당매니저 정량평가)</small></h3>
+      <table class="s1-info"><tr><th>기업명</th><td>${escapeHtml(a.company)}</td><th>대표명</th><td>${escapeHtml(a.ceo)}</td></tr></table>
+      <table class="score-table s1-table"><thead>
+        <tr><th colspan="5" class="left">평가항목(정량평가 100점)_1차평가</th></tr>
+        <tr><th style="width:13%;">항 목</th><th style="width:25%;">세부항목</th><th colspan="2">배점기준</th><th style="width:11%;">평가점수</th></tr></thead>
+        <tbody>${rows}<tr class="total-line"><td colspan="3"><b>1차 평가 소계 (A)</b></td><td>100</td><td><b><span id="s1total">0</span></b></td></tr></tbody></table>
+      <div class="s1-sign">${dateIn}${sign('1차 평가자(담당매니저)', 's1_evaluator', nm.evaluator)}</div>
+      <div class="s1-extra">
+        <div><label class="muted">2차 상정 여부</label><select id="s1_refer">${RP_REFER.map(v => `<option value="${v}" ${refer === v ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+        <div style="flex:3;min-width:220px;"><label class="muted">검토의견 (집계표에 표시 · 선택)</label><input type="text" id="s1_opinion" value="${escapeHtml((s && s.opinion) || '')}" placeholder="예: 제출서류 미비로 상정불가"></div>
+      </div>
+    </div>`;
+  } else {
+    const targets = PROMO_TARGETS[a.track] || [];
+    const tgt0 = (s && s.target) || a.targetTrack || targets[0] || '';
+    html = `<div class="s1-sheet">
+      <h3 class="s1-title">『${space}』<br>입주기업 승급(키움, 이룸) 서류 적합성 평가표</h3>
+      <table class="s1-info">
+        <tr><th>입주 구분</th><td>${box(a.track === '틔움')} 틔움 &nbsp;&nbsp; ${box(a.track === '키움')} 키움</td>
+            <th>승급 신청 트랙</th><td><select id="s1_target">${targets.map(t => `<option value="${t}" ${t === tgt0 ? 'selected' : ''}>${t}</option>`).join('')}</select></td></tr>
+        <tr><th>기업명</th><td>${escapeHtml(a.company)}</td><th>대표명</th><td>${escapeHtml(a.ceo)}</td></tr></table>
+      <table class="score-table s1-table s1-promo"><thead><tr><th style="width:12%;">구분</th><th>평가항목</th><th style="width:24%;">실적 (담당자 확인)</th><th style="width:11%;">확인사항</th></tr></thead>
+        <tbody id="s1_promoRows"></tbody></table>
+      <table class="score-table s1-table"><tr><td class="left"><b>키움 및 이룸공간 입주를 위한 서류 적합성 평가결과 적합여부</b></td>
+        <td style="width:34%;">자동 판정 : <b id="s1_auto">-</b><br>
+          <select id="s1_result" style="margin-top:4px;"><option value="">자동 판정 따름</option><option value="적합">여(○) — 적합으로 지정</option><option value="부적합">부(Ⅹ) — 부적합으로 지정</option></select></td></tr></table>
+      <p class="footer-note">* 해당 사항에 V 표시 — 실적 칸에 값을 넣으면 신청 트랙 기준을 충족할 때 V가 자동으로 표시되며, 직접 고칠 수도 있습니다. 업력조건을 충족하면 경영실적과 관계없이 적합입니다(추진계획 승급 자격).</p>
+      <div class="s1-sign">${dateIn}${sign('평가위원(총괄)', 's1_chief', nm.chief)}${sign('평가위원(담당)', 's1_evaluator', nm.evaluator)}</div>
+      <div class="s1-extra"><div style="flex:3;min-width:220px;"><label class="muted">검토의견 (집계표에 표시 · 비워두면 자동 작성)</label><input type="text" id="s1_opinion" value="${escapeHtml((s && s.opinion) || '')}"></div></div>
+    </div>`;
+  }
+  html += `<div class="srv-row" style="margin-top:10px;">
+      <button type="button" onclick="saveStage1('${a.id}')">1차 평가 저장</button>
+      ${s ? `<button type="button" class="secondary" onclick="printStage1Sheets(['${a.id}'])">🖨 이 평가표 출력</button>` : ''}
+      <span class="muted">1차 결과는 기업별로 하나만 저장됩니다(다시 저장하면 고쳐짐).</span></div>
+    <div class="muted" id="s1FormMsg" style="margin-top:6px;">${s ? `마지막 저장 : ${escapeHtml(String(s.savedAt || '').replace('T', ' ').slice(0, 16))}` : ''}</div>`;
+  area.innerHTML = html;
+
+  if(ex === '연장'){
+    const def = RENEW_STAGE1[a.track];
     const sync = () => {
       let total = 0;
       def.items.forEach(it => {
-        const r = f.querySelector(`input[name="s1_${it.key}"]:checked`);
+        const r = area.querySelector(`input[name="s1_${it.key}"]:checked`);
         $id('s1score_' + it.key).textContent = r ? r.value : '-';
         if(r) total += Number(r.value);
-        f.querySelectorAll(`input[name="s1_${it.key}"]`).forEach(x => x.closest('tr').classList.toggle('s1-on', x.checked));
+        area.querySelectorAll(`input[name="s1_${it.key}"]`).forEach(x => x.closest('tr').classList.toggle('s1-on', x.checked));
       });
       $id('s1total').textContent = total;
     };
-    f.querySelectorAll('input[type=radio]').forEach(r => r.addEventListener('change', sync));
+    area.querySelectorAll('input[type=radio]').forEach(r => r.addEventListener('change', sync));
     sync();
-  } else {
-    const s = a.stage1 || {};
-    const targets = PROMO_TARGETS[a.track] || [];
-    const tgt = s.target || a.targetTrack || targets[0] || '';
-    f.innerHTML = head + `<div class="inline-select">
-        <div><label class="muted">현재 입주 트랙</label><input type="text" value="${a.track}" disabled></div>
-        <div><label class="muted">승급 신청 트랙</label><select id="s1_target">${targets.map(t => `<option value="${t}" ${t === tgt ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-      </div>
-      <table class="score-table"><thead><tr><th style="width:16%;">구분</th><th>평가항목 (신청 트랙 기준)</th><th style="width:16%;">충족 여부</th></tr></thead><tbody id="s1_promoRows"></tbody></table>
-      <div class="srv-row" style="margin-top:10px;">
-        <span>자동 판정(3개 중 1개 이상 충족 시 적합): <b id="s1_auto">-</b></span>
-        <label class="muted" style="margin:0 0 0 14px;">최종 적합 여부</label>
-        <select id="s1_result" style="width:auto;"><option value="">자동 판정 따름</option><option value="적합">적합</option><option value="부적합">부적합</option></select>
-      </div>` + buttons;
-    $id('s1_result').value = s.override ? (s.result || '') : '';
-    const checks = Object.assign({}, s.checks || {});
-    const draw = () => {
-      const t = $id('s1_target').value;
-      $id('s1_promoRows').innerHTML = PROMO_ITEMS.map(([k, label]) => `<tr><td class="group-title">${label}</td>
-        <td class="left">${(PROMO_CRITERIA[t] || {})[k] || '-'}</td>
-        <td><label style="margin:0;"><input type="checkbox" id="s1chk_${k}" ${checks[k] ? 'checked' : ''}> 충족</label></td></tr>`).join('');
-      PROMO_ITEMS.forEach(([k]) => $id('s1chk_' + k).addEventListener('change', e => { checks[k] = e.target.checked; autoTxt(); }));
-      autoTxt();
-    };
-    const autoTxt = () => {
-      const met = PROMO_ITEMS.filter(([k]) => checks[k]).length;
-      $id('s1_auto').innerHTML = met >= 1 ? `<span class="final-pass">적합</span> (${met}/3 충족)` : `<span class="final-fail">부적합</span> (0/3 충족)`;
-    };
-    $id('s1_target').addEventListener('change', draw);
-    draw();
+    return;
   }
-  f.scrollIntoView({ behavior:'smooth', block:'start' });
+  // 승급: 신청 트랙에 따라 기준 문구·자동 V 기준이 바뀐다
+  const checks = Object.assign({}, (s && s.checks) || {});
+  const vals = Object.assign({}, (s && s.vals) || {});
+  const opIn = $id('s1_opinion');
+  let opinionTouched = !!(s && s.opinion && s.opinion !== promoOpinion(s.checks || {}));
+  opIn.addEventListener('input', () => { opinionTouched = opIn.value.trim() !== ''; });
+  const autoTxt = () => {
+    const r = promoAuto(checks);
+    $id('s1_auto').innerHTML = r.auto === '적합'
+      ? `<span class="final-pass">적합</span> (${promoMetText(r)})` : `<span class="final-fail">부적합</span> (업력·실적 모두 미충족)`;
+    if(!opinionTouched) opIn.value = promoOpinion(checks);
+  };
+  const autoCheck = (k, t) => {
+    if(k === 'age' || vals[k] === '' || vals[k] == null) return;
+    const th = (PROMO_THRESH[t] || {})[k];
+    if(th != null){ checks[k] = Number(vals[k]) >= th; const c = $id('s1chk_' + k); if(c) c.checked = checks[k]; }
+  };
+  const draw = initial => {
+    const t = $id('s1_target').value;
+    const text = (k, tr) => k === 'age' ? PROMO_AGE[tr] : PROMO_CRITERIA[tr][k];
+    $id('s1_promoRows').innerHTML = PROMO_ROWS.map(([k, label]) => {
+      const lines = ['키움', '이룸'].map(tr => `<div class="${tr === t ? 's1-crit-on' : 's1-crit-off'}">${box(tr === t)} ${tr} &nbsp; ${text(k, tr)}</div>`).join('');
+      const v = vals[k] != null ? vals[k] : '';
+      const input = k === 'age'
+        ? `<input type="text" id="s1v_age" value="${escapeHtml(v)}" placeholder="예: 창업 2년(2024.03 설립)">`
+        : `<span class="s1-val"><input type="number" min="0" step="1" id="s1v_${k}" value="${escapeHtml(v)}"> ${k === 'employ' ? '명' : '원'}</span>`;
+      return `<tr><td class="group-title">${label}${k === 'age' ? '<div class="muted s1-hint">(업력조건)</div>' : ''}</td><td class="left">${lines}</td><td>${input}</td>
+        <td><label class="s1-v"><input type="checkbox" id="s1chk_${k}" ${checks[k] ? 'checked' : ''}> V</label></td></tr>`;
+    }).join('');
+    PROMO_ROWS.forEach(([k]) => {
+      $id('s1chk_' + k).addEventListener('change', e => { checks[k] = e.target.checked; autoTxt(); });
+      $id('s1v_' + k).addEventListener('input', e => {
+        vals[k] = k === 'age' ? e.target.value.trim() : (e.target.value === '' ? '' : Number(e.target.value));
+        autoCheck(k, $id('s1_target').value); autoTxt();
+      });
+    });
+    if(initial !== true) PROMO_ROWS.forEach(([k]) => autoCheck(k, t));   // 처음 열 때는 저장된 V를 그대로 둠
+    autoTxt();
+  };
+  $id('s1_target').addEventListener('change', () => draw());
+  $id('s1_result').value = (s && s.override) ? (s.result || '') : '';
+  draw(true);
 }
-function closeStage1Form(){ $id('stage1Form').innerHTML = ''; }
 
 function saveStage1(id){
   const a = DB.applicants.find(x => x.id === id);
-  if(!a) return;
-  rpSaveMeta();
-  const ex = applicantExamType(a), f = $id('stage1Form');
+  if(!a || !$id('s1_evaluator')) return;
+  const ex = applicantExamType(a), f = $id('evalFormArea');
   const evaluator = $id('s1_evaluator').value.trim();
   const date = $id('s1_date').value.trim() || todayStr();
+  const opinion = $id('s1_opinion').value.trim();
+  const savedAt = new Date().toISOString();
   if(ex === '연장'){
     const def = RENEW_STAGE1[a.track];
     const scores = {}, missing = [];
@@ -2639,31 +2769,34 @@ function saveStage1(id){
       if(r) scores[it.key] = Number(r.value); else missing.push(it.label);
     });
     if(missing.length){ alert('선택하지 않은 항목이 있습니다.\n- ' + missing.join('\n- ')); return; }
-    if(!evaluator){ alert('위쪽 "1차 평가자(담당매니저)" 칸에 이름을 입력하세요. 평가표 서명란에 들어갑니다.'); $id('s1_evaluator').focus(); return; }
-    a.stage1 = { scores, evaluator, date, savedAt: new Date().toISOString() };
+    if(!evaluator){ alert('평가표 아래 "1차 평가자(담당매니저)" 칸에 이름을 입력하세요. 서명란에 들어갑니다.'); $id('s1_evaluator').focus(); return; }
+    a.stage1 = { scores, refer: $id('s1_refer').value || '2차 상정', opinion, evaluator, date, savedAt };
+    rpSaveMeta({ evaluator });
   } else {
     const target = $id('s1_target').value;
-    const checks = {};
-    PROMO_ITEMS.forEach(([k]) => { checks[k] = $id('s1chk_' + k).checked; });
-    const met = PROMO_ITEMS.filter(([k]) => checks[k]).length;
-    const auto = met >= 1 ? '적합' : '부적합';
+    const checks = {}, vals = { age: $id('s1v_age').value.trim() };
+    PROMO_ROWS.forEach(([k]) => { checks[k] = $id('s1chk_' + k).checked; });
+    PROMO_ITEMS.forEach(([k]) => { const v = $id('s1v_' + k).value; vals[k] = v === '' ? '' : Number(v); });
+    const auto = promoAuto(checks).auto;
     const override = $id('s1_result').value;
-    if(!evaluator){ alert('위쪽 "평가위원(담당)" 칸에 이름을 입력하세요. 평가표 서명란에 들어갑니다.'); $id('s1_evaluator').focus(); return; }
-    a.stage1 = { target, checks, auto, result: override || auto, override: !!override,
-                 evaluator, chief: $id('s1_chief').value.trim(), date, savedAt: new Date().toISOString() };
+    const chief = $id('s1_chief').value.trim();
+    if(!evaluator){ alert('평가표 아래 "평가위원(담당)" 칸에 이름을 입력하세요. 서명란에 들어갑니다.'); $id('s1_evaluator').focus(); return; }
+    a.stage1 = { target, checks, vals, auto, result: override || auto, override: !!override,
+                 opinion: opinion || promoOpinion(checks), evaluator, chief, date, savedAt };
     a.targetTrack = target;
+    rpSaveMeta({ evaluator, chief });
   }
   saveDB();
-  closeStage1Form();
-  renderStage1List();
-  renderApplicantTable();
+  renderApplicantTable();   // 1차 현황 목록도 함께 갱신
   renderApplicantOptions();
   renderAgg();
-  const msg = $id('stage1Msg');
-  if(msg){
-    let srv = false; try{ srv = srvOn(); }catch(e){}
-    msg.innerHTML = `✅ "${escapeHtml(a.company)}" 1차 평가를 저장했습니다.` + (srv ? ' 위원 화면·서버에 반영하려면 위쪽 "서버 관리 → 2. 접수리스트 배포"를 다시 누르세요.' : '');
-  }
+  renderEvalForm();
+  let srv = false; try{ srv = srvOn(); }catch(e){}
+  const note = srv ? ' 위원 화면·서버에 반영하려면 위쪽 "서버 관리 → 2. 접수리스트 배포"를 다시 누르세요.' : '';
+  const msg = $id('s1FormMsg');
+  if(msg) msg.innerHTML = `✅ "${escapeHtml(a.company)}" 1차 평가를 저장했습니다.` + note;
+  const msg2 = $id('stage1Msg');
+  if(msg2) msg2.innerHTML = `✅ "${escapeHtml(a.company)}" 1차 평가를 저장했습니다.` + note;
 }
 
 /* ---- 출력(공식 서식) ---- */
@@ -2796,9 +2929,10 @@ function buildPromoStage1SheetHTML(a){
   const tgt = s.target || a.targetTrack || '';
   const box = on => on ? '☑' : '☐';
   const r = promoResult(a);
-  const rows = PROMO_ITEMS.map(([k, label]) => `
-    <tr><td class="grp" rowspan="2">${label}</td><td class="left">${box(tgt === '키움')} 키움 &nbsp; ${PROMO_CRITERIA.키움[k]}</td><td>${tgt === '키움' && s.checks && s.checks[k] ? 'V' : ''}</td></tr>
-    <tr><td class="left">${box(tgt === '이룸')} 이룸 &nbsp; ${PROMO_CRITERIA.이룸[k]}</td><td>${tgt === '이룸' && s.checks && s.checks[k] ? 'V' : ''}</td></tr>`).join('');
+  const text = (k, tr) => k === 'age' ? PROMO_AGE[tr] : PROMO_CRITERIA[tr][k];
+  const rows = PROMO_ROWS.map(([k, label]) => `
+    <tr><td class="grp" rowspan="2">${label}</td><td class="left">${box(tgt === '키움')} 키움 &nbsp; ${text(k, '키움')}</td><td>${tgt === '키움' && s.checks && s.checks[k] ? 'V' : ''}</td></tr>
+    <tr><td class="left">${box(tgt === '이룸')} 이룸 &nbsp; ${text(k, '이룸')}</td><td>${tgt === '이룸' && s.checks && s.checks[k] ? 'V' : ''}</td></tr>`).join('');
   return `<div class="sheet rp">
     <h2>『${escapeHtml(rpSpaceName())}』<br>입주기업 승급(키움, 이룸) 서류 적합성 평가표</h2>
     <table class="info"><tr><td class="lbl">입주 구분</td><td colspan="3">${box(a.track === '틔움')} 틔움 &nbsp;&nbsp;&nbsp; ${box(a.track === '키움')} 키움</td></tr>
@@ -2826,7 +2960,7 @@ function printStage1Sheets(ids){
   const list = sortByTrackOrder((ids ? ids.map(id => DB.applicants.find(a => a.id === id)).filter(Boolean)
                                     : DB.applicants.filter(a => !a._srv && applicantExamType(a) === ex))
                                 .filter(a => a.stage1));
-  if(!list.length){ alert('출력할 1차 평가 결과가 없습니다. "1차 서류심사" 화면에서 먼저 입력하세요.'); return; }
+  if(!list.length){ alert('출력할 1차 평가 결과가 없습니다. "② 위원 평가 입력 → 평가 회차: 1차 서류평가"에서 먼저 입력하세요.'); return; }
   const html = list.map(a => ex === '연장' ? buildRenewStage1SheetHTML(a) : buildPromoStage1SheetHTML(a)).join('');
   rpOpenPrintWindow(`${EXAM_LABEL[ex]} 1차 평가표`, html);
 }
@@ -2846,7 +2980,7 @@ function rpModel(){
       m.s1 = s;
       m.A = s && s.complete ? s.total : null;
       m.total = (m.A != null && m.B != null) ? round2dp(m.A + m.B) : null;
-      m.status = m.total == null ? 'pending' : (m.total >= RENEW_PASS ? 'pass' : 'fail');
+      m.status = rpRefer(a) === '상정불가' ? 'excluded' : (m.total == null ? 'pending' : (m.total >= RENEW_PASS ? 'pass' : 'fail'));
     } else {
       m.p = promoResult(a);
     }
@@ -2869,8 +3003,9 @@ const RP_STATUS = {
   pass:   { 연장:'연장 승인', 승급:'선정', cls:'final-pass' },
   fail:   { 연장:'미승인', cls:'final-fail' },
   pending:{ 연장:'평가 미완료', 승급:'2차 미평가', cls:'final-warn' },
+  excluded:{ 연장:'상정불가(1차)', cls:'final-fail' },
   s1none: { 승급:'1차 미평가', cls:'final-warn' },
-  s1fail: { 승급:'1차 부적합', cls:'final-fail' },
+  s1fail: { 승급:'1차 부적합(상정불가)', cls:'final-fail' },
   below:  { 승급:`미달(${PROMO_PASS}점 미만)`, cls:'final-fail' },
   over:   { 승급:'선정 외(공실 부족)', cls:'final-fail' },
 };
@@ -2895,34 +3030,53 @@ function rpView(view){
   const noBtn = () => rpCell('', '-');
   const rank = (ms2, key) => { let n = 0; return m => key(m) == null ? '-' : ++n; };
   let head = [], rows = [], hint = '', summary = '';
+  let thead = '', xlsHead = null, xlsMerges = [], merge = false, sheetTitle = '';
   if(view === '1' && exam === '연장'){
-    rpSortBy(ms, m => m.s1 ? m.s1.total : null, dir);
+    // 서식: "연장 서류심사 결과 집계표" — 구분(트랙) 묶음, 상정여부, 항목별 점수, 합계
     const items = ['patent','rules','invest','employ','sales'];
-    head = ['순위','트랙','기업명','대표자','특허 및 인증(10)','제규정 준수(10)','투자실적(30)','고용(20)','매출 성장률(30)','1차 소계(A)','1차 평가자','평가일','출력'];
-    const rk = rank(ms, m => m.s1 ? m.s1.total : null);
+    const anyOp = ms.some(m => m.a.stage1 && m.a.stage1.opinion);
+    head = ['구분','기업명','대표명','상정여부','특허 및 인증(10점)','제규정 준수(10점)','투자실적(30점)','고용충족조건(20점)','매출성장률(30점)','합계'];
+    if(anyOp) head.push('검토의견');
+    head.push('출력');
     ms.forEach(m => {
-      const sc = (m.a.stage1 && m.a.stage1.scores) || {};
-      rows.push([rpCell(rk(m)), rpTrackCell(m.a), rpCell(m.a.company, null, 'left'), rpCell(m.a.ceo),
-        ...items.map(k => rpCell(sc[k] != null ? sc[k] : '-')),
-        m.s1 ? rpCell(m.s1.complete ? m.s1.total : `입력 중(${m.s1.total})`, m.s1.complete ? `<b>${m.s1.total}</b>` : `<span class="final-warn">입력 중(${m.s1.total})</span>`) : rpCell('미입력', '<span class="final-fail">미입력</span>'),
-        rpCell((m.a.stage1 && m.a.stage1.evaluator) || '-'), rpCell((m.a.stage1 && m.a.stage1.date) || '-'),
-        m.a.stage1 ? btn('출력', `printStage1Sheets(['${m.a.id}'])`) : noBtn()]);
+      const st = m.a.stage1, sc = (st && st.scores) || {};
+      const refer = st ? rpRefer(m.a) : '';
+      const row = [rpCell(m.a.track), rpCell(m.a.company, null, 'left'), rpCell(m.a.ceo),
+        st ? rpCell(refer, `<span class="${refer === '상정불가' ? 'final-fail' : ''}">${refer}</span>`) : rpCell('미입력', '<span class="final-fail">미입력</span>'),
+        ...items.map(k => rpCell(sc[k] != null ? sc[k] : '')),
+        m.s1 ? rpCell(m.s1.complete ? m.s1.total : `입력 중(${m.s1.total})`, m.s1.complete ? `<b>${m.s1.total}</b>` : `<span class="final-warn">입력 중(${m.s1.total})</span>`) : rpCell('')];
+      if(anyOp) row.push(rpCell((st && st.opinion) || '', null, 'left'));
+      row.push(st ? btn('출력', `printStage1Sheets(['${m.a.id}'])`) : noBtn());
+      rows.push(row);
     });
-    hint = '1차 서류심사(담당매니저 정량평가, 100점). 고용 항목은 키움 "고용충족조건", 이룸 "신규 고용창출"입니다. 점수 입력은 "평가하기" 탭의 "1차 서류심사" 화면에서 합니다.';
-    summary = `입력 완료 ${ms.filter(m => m.s1 && m.s1.complete).length} / ${ms.length}개사`;
+    merge = true;
+    sheetTitle = `${rpYear()}년 창업혁신공간 입주기업 연장 서류심사 결과 집계표`;
+    hint = '1차 서류심사(담당매니저 정량평가, 100점). 고용 항목은 키움 "고용충족조건", 이룸 "신규 고용창출" 점수입니다. 점수 입력은 "② 위원 평가 입력 → 평가 회차: 1차 서류평가"에서 합니다.';
+    summary = `입력 완료 ${ms.filter(m => m.s1 && m.s1.complete).length} / ${ms.length}개사 · 2차 상정 ${ms.filter(m => m.a.stage1 && rpRefer(m.a) === '2차 상정').length} · 상정불가 ${ms.filter(m => m.a.stage1 && rpRefer(m.a) === '상정불가').length}`;
   } else if(view === '1' && exam === '승급'){
-    head = ['연번','현재 트랙','신청 트랙','기업명','대표자','매출액','투자금액','고용인원','충족 수','적합 여부','평가위원(총괄)','평가위원(담당)','평가일','출력'];
-    ms.forEach((m, i) => {
-      const s = m.a.stage1 || {}, c = s.checks || {}, p = m.p;
-      const ox = k => m.p ? rpCell(c[k] ? '○' : '×') : rpCell('-');
-      rows.push([rpCell(i + 1), rpCell(m.a.track, `<span class="badge b-${m.a.track}">${m.a.track}</span>`), rpCell((p && p.target) || m.a.targetTrack || '-'),
-        rpCell(m.a.company, null, 'left'), rpCell(m.a.ceo), ox('sales'), ox('invest'), ox('employ'),
-        rpCell(p ? `${p.met}/3` : '-'),
-        p ? rpCell(p.result, `<span class="${p.result === '적합' ? 'final-pass' : 'final-fail'}">${p.result}</span>${s.override ? ' <span class="muted">(수동)</span>' : ''}`) : rpCell('미입력', '<span class="final-fail">미입력</span>'),
-        rpCell(s.chief || '-'), rpCell(s.evaluator || '-'), rpCell(s.date || '-'),
+    // 서식: "승급 적합성 검토 결과 집계표" — 구분, 상정여부, 검토기준(업력·매출액·투자액·고용), 결과, 검토의견
+    head = ['구분','기업명','대표명','상정여부','업력','매출액','투자액','고용','결과','검토의견','출력'];
+    thead = `<tr><th rowspan="2">구분</th><th rowspan="2">기 업 명</th><th rowspan="2">대표명</th><th rowspan="2">상정여부</th><th colspan="4">검토기준</th><th rowspan="2">결과</th><th rowspan="2">검토의견</th><th rowspan="2" class="noprint">출력</th></tr>
+      <tr><th>업력</th><th>매출액</th><th>투자액</th><th>고용</th></tr>`;
+    xlsHead = [['구분','기 업 명','대표명','상정여부','검토기준','','','','결과','검토의견'], ['','','','','업력','매출액','투자액','고용','','']];
+    xlsMerges = ['A2:A3','B2:B3','C2:C3','D2:D3','E2:H2','I2:I3','J2:J3'];
+    ms.forEach(m => {
+      const s = m.a.stage1 || {}, c = s.checks || {}, v = s.vals || {}, p = m.p;
+      const val = (k, txt) => rpCell(txt, `<span class="${c[k] ? 's1-met' : ''}">${escapeHtml(txt)}</span>`);
+      const age = v.age || (p ? (c.age ? '충족' : '-') : '');
+      rows.push([rpCell(m.a.track), rpCell(m.a.company, null, 'left'), rpCell(m.a.ceo),
+        p ? rpCell(p.refer, `<span class="${p.refer === '상정불가' ? 'final-fail' : ''}">${p.refer}</span>`) : rpCell('미입력', '<span class="final-fail">미입력</span>'),
+        p ? val('age', age) : rpCell(''),
+        p ? val('sales', fmtWon(v.sales)) : rpCell(''),
+        p ? val('invest', fmtWon(v.invest)) : rpCell(''),
+        p ? val('employ', (v.employ === '' || v.employ == null) ? '-' : `${v.employ}명`) : rpCell(''),
+        p ? rpCell(p.result, `<span class="${p.result === '적합' ? 'final-pass' : 'final-fail'}">${p.result}</span>${s.override ? ' <span class="muted">(수동)</span>' : ''}`) : rpCell(''),
+        rpCell(p ? (s.opinion || promoOpinion(c)) : '', null, 'left'),
         m.a.stage1 ? btn('출력', `printStage1Sheets(['${m.a.id}'])`) : noBtn()]);
     });
-    hint = '1차 서류 적합성 평가 — 신청 트랙 기준 매출액·투자금액·고용인원 중 1개 이상 충족 시 적합(키움: 1억원·1천만원·2명 / 이룸: 5억원·5억원·4명). 적합 기업만 2차 발표평가 대상입니다.';
+    merge = true;
+    sheetTitle = `${rpYear()}년 창업혁신공간 입주기업 승급 적합성 검토 결과 집계표`;
+    hint = '1차 서류 적합성 검토 — 신청 트랙 기준 업력조건 충족 또는 매출액·투자금액·고용인원 중 1개 이상 충족 시 적합(키움: 1억원·1천만원·2명 / 이룸: 5억원·5억원·4명). 적합 기업만 2차 발표평가에 상정됩니다. 굵은 글씨는 기준을 충족한 항목입니다.';
     summary = `적합 ${ms.filter(m => m.p && m.p.result === '적합').length} · 부적합 ${ms.filter(m => m.p && m.p.result === '부적합').length} · 미입력 ${ms.filter(m => !m.p).length}`;
   } else if(view === '2'){
     rpSortBy(ms, m => m.B, dir);
@@ -2952,7 +3106,7 @@ function rpView(view){
         m.evals.length ? btn('평가표', `printEvalSheets(['${m.a.id}'], '2')`) : noBtn()]);
     });
     hint = `최종 점수 = 1차 서류심사(A) + 2차 발표평가 평점(B). <b>200점 만점 중 ${RENEW_PASS}점 이상이면 연장 승인</b>입니다. "평가표"는 위원별 공식 평가표(1차·2차·합계·서명란)를 출력합니다.`;
-    summary = `연장 승인 ${ms.filter(m => m.status === 'pass').length} · 미승인 ${ms.filter(m => m.status === 'fail').length} · 평가 미완료 ${ms.filter(m => m.status === 'pending').length}`;
+    summary = `연장 승인 ${ms.filter(m => m.status === 'pass').length} · 미승인 ${ms.filter(m => m.status === 'fail').length} · 평가 미완료 ${ms.filter(m => m.status === 'pending').length}` + (ms.some(m => m.status === 'excluded') ? ` · 상정불가 ${ms.filter(m => m.status === 'excluded').length}` : '');
   } else {
     rpSortBy(ms, m => (m.p && m.p.result === '적합') ? m.B : null, dir);
     head = ['순위','현재→신청','기업명','대표자','1차 적합성','2차 평점 /100','결과','출력'];
@@ -2969,30 +3123,70 @@ function rpView(view){
     hint = `1차 적합 기업 중 2차 평점 <b>${PROMO_PASS}점 이상</b>을 고득점순으로 선정합니다. "잔여 공실" 칸에 선정 가능 수를 넣으면 그 수만큼만 "선정"으로 표시됩니다${q === '' ? '(비워두면 기준 통과 기업 모두 선정)' : ''}.`;
     summary = `선정 ${ms.filter(m => m.status === 'pass').length} · 선정 외 ${ms.filter(m => m.status === 'over').length} · 미달 ${ms.filter(m => m.status === 'below').length} · 1차 부적합 ${ms.filter(m => m.status === 's1fail').length} · 미평가 ${ms.filter(m => m.status === 'pending' || m.status === 's1none').length}`;
   }
-  return { head, rows, hint, summary, title: `${EXAM_LABEL[exam]} ${RP_VIEW_LABEL[view] || ''}` };
+  return { head, rows, hint, summary, thead, xlsHead, xlsMerges, merge, sheetTitle, title: `${EXAM_LABEL[exam]} ${RP_VIEW_LABEL[view] || ''}` };
+}
+function rpYear(){ return new Date().getFullYear(); }
+// 첫 열(구분) 같은 값이 이어지면 한 칸으로 묶는다(rowspan)
+function rpMergeRuns(rows){
+  const spans = rows.map(() => 0);
+  for(let i = 0; i < rows.length;){
+    let j = i; while(j + 1 < rows.length && rows[j + 1][0].t === rows[i][0].t) j++;
+    spans[i] = j - i + 1; i = j + 1;
+  }
+  return spans;
 }
 function renderAggRP(area){
   const view = $id('agg_round').value || 'final';
   const v = rpView(view);
   $id('aggHintRP').innerHTML = v.hint;
   if(!v.rows.length){ area.innerHTML = '<p class="empty">해당 조건의 신청자가 없습니다.</p>'; return; }
+  const outIdx = v.head.indexOf('출력');
+  const thCls = i => (i === outIdx || v.head[i] === '평가표') ? ' class="noprint"' : '';
+  const thead = v.thead || `<tr>${v.head.map((h, i) => `<th${thCls(i)}>${h}</th>`).join('')}</tr>`;
+  const spans = v.merge ? rpMergeRuns(v.rows) : null;
+  const body = v.rows.map((r, ri) => `<tr>${r.map((c, ci) => {
+    if(spans && ci === 0){
+      if(!spans[ri]) return '';
+      return `<td class="grp-cell" rowspan="${spans[ri]}"><b>${c.h}</b></td>`;
+    }
+    const np = (ci === outIdx || v.head[ci] === '평가표') ? ' noprint' : '';
+    return `<td class="${c.cls}${np}">${c.h}</td>`;
+  }).join('')}</tr>`).join('');
   area.innerHTML = `<p class="muted" style="margin:0 0 6px;"><b>${v.title}</b> · ${v.summary}</p>
-    <div style="overflow-x:auto;"><table><thead><tr>${v.head.map(h => `<th>${h}</th>`).join('')}</tr></thead>
-    <tbody>${v.rows.map(r => `<tr>${r.map(c => `<td class="${c.cls}">${c.h}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    ${v.sheetTitle ? `<h3 class="agg-sheet-title">${escapeHtml(v.sheetTitle)}</h3>` : ''}
+    <div style="overflow-x:auto;"><table class="rp-agg"><thead>${thead}</thead><tbody>${body}</tbody></table></div>`;
 }
 function exportAggRP(){
   const view = $id('agg_round').value || 'final';
   const v = rpView(view);
   if(!v.rows.length){ alert('내보낼 데이터가 없습니다.'); return; }
-  const keep = v.head.map((h, i) => h === '출력' ? -1 : i).filter(i => i >= 0);
-  const rows2D = [keep.map(i => v.head[i])].concat(v.rows.map(r => keep.map(i => r[i].t)));
+  const keep = v.head.map((h, i) => (h === '출력' || h === '평가표') ? -1 : i).filter(i => i >= 0);
+  let rows2D = [], merges = [];
+  if(v.sheetTitle){
+    // 결과 집계표 서식: 1행 제목, 2행(~3행) 머리글, 같은 구분은 셀 병합
+    const L = colIndexToLetters;
+    rows2D.push([v.sheetTitle].concat(keep.slice(1).map(() => '')));
+    merges.push(`A1:${L(keep.length - 1)}1`);
+    const heads = v.xlsHead || [keep.map(i => v.head[i])];
+    rows2D = rows2D.concat(heads);
+    merges = merges.concat(v.xlsMerges || []);
+    const start = rows2D.length + 1;   // 첫 데이터 행 번호(1부터)
+    const spans = v.merge ? rpMergeRuns(v.rows) : null;
+    v.rows.forEach((r, ri) => {
+      rows2D.push(keep.map((i, k) => (spans && k === 0 && !spans[ri]) ? '' : r[i].t));
+      if(spans && spans[ri] > 1) merges.push(`A${start + ri}:A${start + ri + spans[ri] - 1}`);
+    });
+  } else {
+    rows2D = [keep.map(i => v.head[i])].concat(v.rows.map(r => keep.map(i => r[i].t)));
+  }
   const sheetName = `${EXAM_LABEL[currentExamType]}_${(RP_VIEW_LABEL[view] || '').replace(/\s/g, '')}`;
-  downloadBlob(buildXlsxBlob(sheetName, rows2D), `${sheetName}.xlsx`);
+  downloadBlob(buildXlsxBlob(sheetName, rows2D, merges), `${sheetName}.xlsx`);
 }
 function printAggTable(){
   const area = $id('aggArea');
   if(!aggViewUnlocked || !area.querySelector('table')){ alert('인쇄할 집계표가 없습니다. "④ 집계 결과" 탭에서 먼저 집계표를 여세요.'); return; }
   const clone = area.cloneNode(true);
+  clone.querySelectorAll('.noprint').forEach(el => el.remove());
   // "출력" 같은 버튼 열은 인쇄에서 뺀다
   const table = clone.querySelector('table');
   const ths = Array.from(table.querySelectorAll('thead th'));
@@ -3000,9 +3194,12 @@ function printAggTable(){
   table.querySelectorAll('tr').forEach(tr => { dropIdx.slice().reverse().forEach(i => { if(tr.children[i]) tr.children[i].remove(); }); });
   clone.querySelectorAll('button').forEach(b => b.remove());
   const roundSel = $id('agg_round'), trackSel = $id('agg_track');
-  const title = currentExamType === '신규'
+  const sheetTitleEl = clone.querySelector('.agg-sheet-title');
+  const title = sheetTitleEl ? sheetTitleEl.textContent
+    : currentExamType === '신규'
     ? `${EXAM_LABEL[currentExamType]} ${roundSel.options[roundSel.selectedIndex].text} 집계표`
     : `『${rpSpaceName()}』 ${EXAM_LABEL[currentExamType]} ${roundSel.options[roundSel.selectedIndex].text}`;
+  if(sheetTitleEl) sheetTitleEl.remove();
   const hintEl = currentExamType === '신규' ? $id('aggHintNew') : $id('aggHintRP');
   rpOpenPrintWindow(title, `<div class="sheet agg">
     <h2>${escapeHtml(title)}</h2>
@@ -3030,10 +3227,24 @@ function rpFilterTrackSelect(id){
   const allowed = EXAM_TRACKS[currentExamType] || [];
   rpSetOptions(id, sel._allOpts.filter(([v]) => v === '' || allowed.includes(v)));
 }
+// 1차 서류평가(담당자)는 관리자 화면에서만: 오프라인이거나, 관리자 로그인 상태이면서 위원으로 로그인하지 않은 경우
+function rpStage1Allowed(){
+  let srv = false, admin = false, evalAuth = false;
+  try{ srv = srvOn(); admin = srvIsAdmin(); evalAuth = !!srvEvalAuth(); }catch(e){}   // 서버 모듈이 아직 준비되기 전(초기 렌더)에는 오프라인으로 간주
+  return !srv || (admin && !evalAuth);
+}
 function rpApplyVisibility(){
   let srv = false, admin = false;
-  try{ srv = srvOn(); admin = srvIsAdmin(); }catch(e){}   // 서버 모듈이 아직 준비되기 전(초기 렌더)에는 오프라인으로 간주
-  $id('stage1Panel').style.display = (currentExamType !== '신규' && (!srv || admin)) ? '' : 'none';
+  try{ srv = srvOn(); admin = srvIsAdmin(); }catch(e){}
+  const rp = currentExamType !== '신규';
+  $id('stage1Panel').style.display = (rp && (!srv || admin)) ? '' : 'none';
+  $id('pdfIntakePanel').style.display = (rp && (!srv || admin)) ? '' : 'none';
+  if(!rp) return;
+  const before = $id('ev_round').value;
+  rpSetOptions('ev_round', rpStage1Allowed() ? [['1', '1차 서류평가(담당자)'], ['2', '2차 발표평가(위원회)']] : [['2', '2차 발표평가(위원회)']]);
+  if($id('ev_round').value !== before && typeof renderEvalForm === 'function'){
+    try{ renderApplicantOptions(); renderEvalForm(); }catch(e){}
+  }
 }
 let rpLastExam = null;
 function rpApplyExamUI(){
@@ -3045,7 +3256,7 @@ function rpApplyExamUI(){
   $id('f_trackLabel').textContent = ex === '승급' ? '현재 입주 트랙' : '트랙 구분';
   $id('f_targetRow').style.display = ex === '승급' ? '' : 'none';
   document.querySelectorAll('#intakeForm .penalty-box').forEach(el => el.style.display = rp ? 'none' : '');
-  rpSetOptions('ev_round', rp ? [['2', '2차 발표평가(위원회)']] : null);
+  if(!rp) rpSetOptions('ev_round', null);   // 연장·승급의 평가 회차는 rpApplyVisibility에서(관리자만 1차)
   rpSetOptions('my_round', rp ? [['', '전체'], ['2', '2차 발표평가']] : null);
   rpSetOptions('agg_round', rp ? [['final', '최종 집계(1차+2차)'], ['1', '1차 집계표'], ['2', '2차 집계표']] : null);
   $id('aggRoundLabel').textContent = rp ? '집계 보기' : '평가 회차';
@@ -3057,7 +3268,7 @@ function rpApplyExamUI(){
   if(rp) renderStage1Panel();
   rpApplyVisibility();
 }
-['s1_evaluator', 's1_chief', 's1_date', 's1_space'].forEach(id => $id(id).addEventListener('input', rpSaveMeta));
+$id('s1_space').addEventListener('input', () => rpSaveMeta());
 
 const _applyExamTypeUI_rp = applyExamTypeUI;
 applyExamTypeUI = function(){ _applyExamTypeUI_rp(); rpApplyExamUI(); };
@@ -3067,17 +3278,31 @@ editApplicant = function(id){
   const a = DB.applicants.find(x => x.id === id);
   $id('f_target').value = (a && a.targetTrack) || '';
 };
-// 승급 2차: 1차 적합 기업만 위원 선택 목록에 표시
+// 신청자 선택 목록
+//  - 1차(담당자): 이 PC에서 등록한 신청자 전체, 입력 완료 표시
+//  - 2차(위원): 승급은 1차 적합 기업만, 연장은 "상정불가"를 뺀 기업만
 const _renderApplicantOptions_rp = renderApplicantOptions;
 renderApplicantOptions = function(){
   _renderApplicantOptions_rp();
-  if(currentExamType !== '승급') return;
+  if(currentExamType === '신규') return;
   const sel = $id('ev_applicant');
+  const r1 = $id('ev_round').value === '1';
   Array.from(sel.options).forEach(o => {
     if(!o.value) return;
     const a = DB.applicants.find(x => x.id === o.value);
     if(!a) return;
-    const ok = a._srv ? a.s1ok !== false : ((promoResult(a) || {}).result === '적합');
+    if(r1){
+      if(a._srv){ o.remove(); return; }
+      const done = !!a.stage1;
+      const tr = currentExamType === '승급' ? `${a.track}→${a.targetTrack || '?'}` : a.track;
+      o.textContent = `[${tr}] ${a.company} (${a.ceo})` + (done ? ' — ✅ 1차 입력완료' : '');
+      o.style.color = done ? '#c0392b' : ''; o.style.fontWeight = done ? 'bold' : '';
+      return;
+    }
+    let ok;
+    if(a._srv) ok = a.s1ok !== false;
+    else if(currentExamType === '승급') ok = (promoResult(a) || {}).result === '적합';
+    else ok = rpRefer(a) !== '상정불가';
     if(!ok) o.remove();
   });
   if(sel.value && !Array.from(sel.options).some(o => o.value === sel.value)) sel.value = '';
@@ -3085,6 +3310,374 @@ renderApplicantOptions = function(){
 // 접수리스트가 바뀌면 1차 목록도 갱신
 const _renderApplicantTable_rp = renderApplicantTable;
 renderApplicantTable = function(){ _renderApplicantTable_rp(); if(currentExamType !== '신규') renderStage1List(); };
+
+/* =====================================================================
+   연장·승급 신청서 PDF → 접수리스트 (관리자 전용)
+   - PDF 글자 읽기는 공개 라이브러리 pdf.js를 필요할 때만 불러와 이 브라우저 안에서 처리(서버로 보내지 않음)
+   - "[서식 제9호] 입주 연장(승급)신청서"의 칸 이름(기업명·대표자·사업자등록번호…)을 기준으로 값을 찾는다
+   - 여러 기업 신청서를 합친 PDF도 기업별로 나눠 읽는다
+   ===================================================================== */
+const PDFJS_BASE = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/';
+let pdfjsPromise = null;
+function loadPdfJs(){
+  if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if(pdfjsPromise) return pdfjsPromise;
+  const load = src => new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = src;
+    sc.onload = resolve;
+    sc.onerror = () => reject(new Error('PDF 읽기 도구를 불러오지 못했습니다. 인터넷 연결을 확인하세요.'));
+    document.head.appendChild(sc);
+  });
+  // 처리기(worker)도 화면과 같은 곳에서 돌린다: 다른 사이트의 백그라운드 작업이 막힌 환경에서도 동작하도록
+  pdfjsPromise = load(PDFJS_BASE + 'build/pdf.min.js')
+    .then(() => { if(!window.pdfjsLib) throw new Error('PDF 읽기 도구를 불러오지 못했습니다.'); window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_BASE + 'build/pdf.worker.min.js'; })
+    .then(() => load(PDFJS_BASE + 'build/pdf.worker.min.js'))
+    .then(() => window.pdfjsLib)
+    .catch(e => { pdfjsPromise = null; throw e; });
+  return pdfjsPromise;
+}
+
+// 쪽별 글자 조각 → 글. mode 'stream'은 PDF에 적힌 순서, 'yx'는 위→아래·왼→오른 순서
+function pdfItemsToText(items, mode){
+  let arr = items.filter(it => it.str.length > 0);
+  if(mode === 'yx'){
+    const sorted = arr.slice().sort((a, b) => b.y - a.y);
+    const lines = [];
+    sorted.forEach(it => {
+      const ln = lines[lines.length - 1];
+      const tol = Math.max(2, (it.h || 10) * 0.5);
+      if(ln && Math.abs(ln.y - it.y) <= tol) ln.items.push(it); else lines.push({ y: it.y, items: [it] });
+    });
+    arr = [];
+    lines.forEach(ln => { ln.items.sort((a, b) => a.x - b.x); ln.items.forEach((it, i) => arr.push(Object.assign({}, it, { _nl: i === 0 }))); });
+  }
+  let out = '', prev = null;
+  arr.forEach(it => {
+    if(prev){
+      const tol = Math.max(2, Math.min(prev.h || 10, it.h || 10) * 0.5);
+      if(mode === 'yx' ? it._nl : Math.abs(it.y - prev.y) > tol) out += '\n';
+      else {
+        const gap = it.x - (prev.x + (prev.w || 0));
+        if(gap > Math.max(1, (it.h || 10) * 0.2) || gap < -2) out += ' ';
+      }
+    }
+    out += it.str; prev = it;
+  });
+  return out;
+}
+
+async function pdfExtractPages(file){
+  const lib = await loadPdfJs();
+  const buf = await file.arrayBuffer();
+  const doc = await lib.getDocument({ data: new Uint8Array(buf), cMapUrl: PDFJS_BASE + 'cmaps/', cMapPacked: true, standardFontDataUrl: PDFJS_BASE + 'standard_fonts/' }).promise;
+  const pages = [];
+  for(let i = 1; i <= doc.numPages; i++){
+    const page = await doc.getPage(i);
+    const tc = await page.getTextContent();
+    pages.push({ no: i, items: tc.items.filter(it => typeof it.str === 'string').map(it => ({
+      str: it.str, x: it.transform[4], y: it.transform[5], w: it.width || 0, h: it.height || Math.abs(it.transform[3]) || 10 })) });
+    page.cleanup && page.cleanup();
+  }
+  doc.destroy && doc.destroy();
+  return pages;
+}
+
+/* ---- 글에서 신청서 칸 값 찾기 ---- */
+const pdfSp = s => s.split('').map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s*');   // 글자 사이 띄어쓰기 허용
+const PDF_LABELS = [
+  ['ceo', new RegExp(pdfSp('대표자'))],
+  ['bizNo', new RegExp(pdfSp('사업자등록번호'))],
+  ['corpNo', new RegExp(pdfSp('법인등록번호'))],
+  ['addr', new RegExp(pdfSp('주소'))],
+  ['phone', new RegExp(pdfSp('전화번호'))],
+  ['product', new RegExp(pdfSp('주생산품'))],
+  ['emailCeo', new RegExp('E\\s*-?\\s*MAIL\\s*\\(?\\s*' + pdfSp('대표자') + '\\s*\\)?', 'i')],
+  ['emailStaff', new RegExp('E\\s*-?\\s*MAIL\\s*\\(?\\s*' + pdfSp('실무자') + '\\s*\\)?', 'i')],
+  ['period', new RegExp(pdfSp('입주기간') + '\\s*\\(?\\s*' + pdfSp('협약기간') + '\\s*\\)?')],
+  ['curPeriod', new RegExp(pdfSp('현재입주기간'))],
+  ['wantPeriod', new RegExp('(' + pdfSp('입주연장희망기간') + '|\\(?\\s*' + pdfSp('승급') + '\\s*\\)?\\s*' + pdfSp('입주희망기간') + ')')],
+  ['reason', new RegExp(pdfSp('신청사유'))],
+  ['end', new RegExp('(' + pdfSp('운영규정과절차') + '|' + pdfSp('재단법인경기도') + '|' + pdfSp('첨부서류') + ')')],
+];
+const PDF_COMPANY_RX = new RegExp(pdfSp('기업명'), 'g');
+const PDF_BIZNO_RX = new RegExp(pdfSp('사업자등록번호'));
+const PDF_TITLE_RX = new RegExp(pdfSp('입주') + '\\s*(' + pdfSp('연장') + '|' + pdfSp('승급') + ')\\s*' + pdfSp('신청서'), 'g');
+const PDF_MARK = /[■☑▣✔✓√●◼◆▶vVＶ]/;
+
+function pdfClean(v){
+  return String(v || '').replace(/[\u0000-\u001f\u007f​﻿]/g, ' ').replace(/\s+/g, ' ').replace(/^[\s:：|]+|[\s:：|]+$/g, '').replace(/^(신청기업\s*)?현\s*황\s*/, '').replace(/\s*신청기업\s*현?\s*황?\s*$/, '').trim();
+}
+function pdfName(v){
+  const c = pdfClean(v).replace(/\(\s*인\s*\)|\(?\s*서명\s*\)?/g, '').trim();
+  return (/^[가-힣\s]+$/.test(c) && c.replace(/\s/g, '').length <= 5) ? c.replace(/\s/g, '') : c;
+}
+function pdfDates(v){
+  const out = [], rx = /(20\d{2})\s*[.년\-\/]\s*(\d{1,2})\s*[.월\-\/]\s*(\d{1,2})/g;
+  let m;
+  while((m = rx.exec(String(v || '')))) out.push(`${m[1]}.${m[2].padStart(2, '0')}.${m[3].padStart(2, '0')}`);
+  if(out.length >= 2) return out;
+  // 글자 순서가 뒤섞여 읽힌 경우("2025 01년 월01일") 또는 2자리 연도("’25.01.01."): 숫자만 차례로 모아 연·월·일로
+  const nums = String(v || '').match(/\d+/g) || [], alt = [];
+  for(let i = 0; i + 2 < nums.length; i++){
+    const y = nums[i].length === 4 && /^20/.test(nums[i]) ? nums[i] : (nums[i].length === 2 && /^[12]/.test(nums[i]) ? '20' + nums[i] : null);
+    const mo = Number(nums[i + 1]), d = Number(nums[i + 2]);
+    if(y && mo >= 1 && mo <= 12 && d >= 1 && d <= 31){ alt.push(`${y}.${String(mo).padStart(2, '0')}.${String(d).padStart(2, '0')}`); i += 2; }
+  }
+  return alt.length > out.length ? alt : out;
+}
+function pdfPeriod(v){ const d = pdfDates(v); return d.length >= 2 ? `${d[0]} ~ ${d[1]}` : (d[0] || pdfClean(v)); }
+
+function pdfTrackInfo(header){
+  const h = header.replace(/\s+/g, ' ');
+  const pick = (track, rx, unitA, unitB) => {
+    const m = h.match(rx);
+    if(!m) return null;
+    const a = (m[1] || '').replace(/[\s_]/g, ''), b = (m[2] || '').replace(/[\s_]/g, '');
+    const before = h.slice(Math.max(0, m.index - 3), m.index);
+    return { track, marked: PDF_MARK.test(before), filled: !!(a || b), room: [a ? a + unitA : '', b ? b + unitB : ''].filter(Boolean).join(' ') };
+  };
+  const cands = [
+    pick('틔움', new RegExp('\\(\\s*' + pdfSp('틔움') + '\\s*\\)\\s*\\(([^()]*)\\)\\s*' + pdfSp('인석') + '\\s*\\/?\\s*\\(([^()]*)\\)\\s*번'), '인석', '번'),
+    pick('키움', new RegExp('\\(\\s*' + pdfSp('키움') + '\\s*\\)\\s*\\(([^()]*)\\)\\s*' + pdfSp('인실') + '\\s*\\/?\\s*\\(([^()]*)\\)\\s*호'), '인실', '호'),
+    pick('이룸', new RegExp('\\(\\s*' + pdfSp('이룸') + '\\s*\\)\\s*\\(([^()]*)\\)\\s*TYPE\\s*\\/?\\s*\\(([^()]*)\\)\\s*호', 'i'), 'TYPE', '호'),
+  ].filter(Boolean);
+  const best = cands.find(c => c.filled && c.marked) || cands.find(c => c.filled) || cands.find(c => c.marked) || null;
+  const titles = Array.from(header.matchAll(PDF_TITLE_RX));
+  const title = titles.length ? (/승/.test(titles[titles.length - 1][1]) ? '승급' : '연장') : '';
+  return { track: best ? best.track : '', room: best ? best.room : '', title, hasTium: cands.some(c => c.track === '틔움'), hasIrum: cands.some(c => c.track === '이룸') };
+}
+
+function parseApplicationsText(text){
+  const recs = [];
+  const anchors = [];
+  let m;
+  PDF_COMPANY_RX.lastIndex = 0;
+  while((m = PDF_COMPANY_RX.exec(text))){
+    let after = text.slice(m.index + m[0].length, m.index + m[0].length + 700);
+    if(/^\s*[(:：]/.test(after)) continue;   // "기업명(대표자) :" 같은 다른 서식의 칸은 신청서가 아님
+    // 다음 신청서 제목·입주 형태·기업명 전까지 안에서 대표자·사업자등록번호 칸이 나와야 신청서
+    const cut = after.search(new RegExp(PDF_TITLE_RX.source + '|' + pdfSp('입주형태') + '|' + pdfSp('기업명')));
+    if(cut >= 0) after = after.slice(0, cut);
+    if(PDF_BIZNO_RX.test(after) && PDF_LABELS[0][1].test(after.slice(0, 400))) anchors.push({ s: m.index, e: m.index + m[0].length });
+  }
+  let prevEnd = 0;
+  anchors.forEach((an, i) => {
+    const limit = i + 1 < anchors.length ? anchors[i + 1].s : Math.min(text.length, an.e + 4000);
+    const body = text.slice(an.e, limit);
+    // 칸 이름을 순서대로 찾아 사이의 글을 값으로
+    const found = [];
+    let pos = 0;
+    PDF_LABELS.forEach(([k, rx]) => {
+      const mm = body.slice(pos).match(rx);
+      if(mm){ found.push({ k, s: pos + mm.index, e: pos + mm.index + mm[0].length }); pos = pos + mm.index + mm[0].length; }
+    });
+    const raw = { company: body.slice(0, found.length ? found[0].s : 200) };
+    found.forEach((f, j) => { if(f.k !== 'end') raw[f.k] = body.slice(f.e, j + 1 < found.length ? found[j + 1].s : Math.min(body.length, f.e + 300)); });
+    const endF = found.find(f => f.k === 'end');
+    const tail = endF ? body.slice(endF.s, endF.s + 400) : '';
+    const header = text.slice(Math.max(prevEnd, an.s - 900), an.s);
+    prevEnd = an.e + (endF ? endF.e : 0);
+    const ti = pdfTrackInfo(header);
+    let exam = ti.title;
+    if(!exam){
+      // 제목을 못 읽은 경우: "(승급) 입주 희망 기간" 칸이나 틔움 칸이 있으면 승급 신청서
+      const wf = found.find(f => f.k === 'wantPeriod');
+      const wantLabel = wf ? body.slice(wf.s, wf.e) : '';
+      exam = (ti.hasTium || /승\s*급/.test(wantLabel)) ? '승급' : '연장';
+    }
+    if(ti.track === '틔움') exam = '승급';
+    if(ti.track === '이룸') exam = '연장';
+    const biz = (String(raw.bizNo || '').replace(/\s/g, '').match(/(\d{3})-?(\d{2})-?(\d{5})/) || []);
+    const corp = (String(raw.corpNo || '').replace(/\s/g, '').match(/(\d{6})-?(\d{7})/) || []);
+    const phone = (String(raw.phone || '').match(/(0\d{1,2})[\s\-.)]*(\d{3,4})[\s\-.]*(\d{4})/) || []);
+    const mail = v => (String(v || '').replace(/\s+/g, '').match(/[\w.+\-]+@[\w\-]+(\.[\w\-]+)+/) || [''])[0];
+    const sign = tail.match(/(20\d{2})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+    const reason = pdfClean(raw.reason).replace(/\s*(경기)?\s*창업혁신공간[^.。]{0,30}$/, '').trim();
+    const track = ti.track || '';
+    const rec = {
+      exam, track, targetTrack: exam === '승급' ? (track === '키움' ? '이룸' : (track === '틔움' ? '키움' : '')) : '',
+      company: pdfClean(raw.company).replace(/^[:：]\s*/, ''), ceo: pdfName(raw.ceo),
+      room: ti.room, item: pdfClean(raw.product),
+      bizNo: biz[0] ? `${biz[1]}-${biz[2]}-${biz[3]}` : pdfClean(raw.bizNo),
+      corpNo: corp[0] ? `${corp[1]}-${corp[2]}` : pdfClean(raw.corpNo),
+      addr: pdfClean(raw.addr), phone: phone[0] ? `${phone[1]}-${phone[2]}-${phone[3]}` : pdfClean(raw.phone),
+      email: mail(raw.emailCeo), emailStaff: mail(raw.emailStaff),
+      curPeriod: pdfPeriod(raw.curPeriod), wantPeriod: pdfPeriod(raw.wantPeriod),
+      applyDate: sign ? `${sign[1]}-${sign[2].padStart(2, '0')}-${sign[3].padStart(2, '0')}` : '',
+      reason,
+    };
+    rec.warn = pdfWarnings(rec);
+    recs.push(rec);
+  });
+  return recs;
+}
+function pdfWarnings(r){
+  const w = [];
+  if(!r.company) w.push('기업명');
+  if(!r.ceo) w.push('대표자');
+  if(!r.track) w.push('입주형태');
+  if(r.exam === '승급' && !r.targetTrack) w.push('신청 트랙');
+  if(!/^\d{3}-\d{2}-\d{5}$/.test(r.bizNo)) w.push('사업자번호');
+  if(!r.curPeriod) w.push('현재 입주기간');
+  return w;
+}
+function pdfScore(recs){ return recs.reduce((s, r) => s + 10 - r.warn.length + (r.item ? 1 : 0) + (r.phone ? 1 : 0) + (r.email ? 1 : 0), 0); }
+const pdfKey = s => String(s || '').replace(/\(주\)|㈜|주식회사|\s|[()]/g, '').toLowerCase();
+
+// 두 가지 읽는 순서로 각각 해석해서 더 잘 읽힌 쪽을 쓰고, 빈 칸은 다른 쪽 값으로 채움
+function parseApplicationsFromPages(pages){
+  const join = mode => pages.map(p => pdfItemsToText(p.items, mode)).join('\n\f\n');
+  const a = parseApplicationsText(join('stream')), b = parseApplicationsText(join('yx'));
+  let base = a, other = b;
+  if(b.length > a.length || (b.length === a.length && pdfScore(b) > pdfScore(a))){ base = b; other = a; }
+  base.forEach((r, i) => {
+    const o = other.find(x => pdfKey(x.company) && pdfKey(x.company) === pdfKey(r.company)) || (other.length === base.length ? other[i] : null);
+    if(!o) return;
+    Object.keys(r).forEach(k => { if(k !== 'warn' && !r[k] && o[k]) r[k] = o[k]; });
+    r.warn = pdfWarnings(r);
+  });
+  const blank = pages.filter(p => p.items.map(it => it.str).join('').replace(/\s/g, '').length < 15).map(p => p.no);
+  return { recs: base, blank };
+}
+
+/* ---- 화면: 읽기 → 확인·수정 → 출력/엑셀/등록 ---- */
+let pdfState = { recs: [], files: [], blank: [] };
+async function handlePdfFiles(fileList){
+  const files = Array.from(fileList || []).filter(f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
+  const log = $id('pdfLog');
+  if(!files.length){ log.textContent = 'PDF 파일을 선택하세요.'; return; }
+  pdfState = { recs: [], files: [], blank: [] };
+  for(const f of files){
+    log.textContent = `"${f.name}" 읽는 중…`;
+    try{
+      const pages = await pdfExtractPages(f);
+      const r = parseApplicationsFromPages(pages);
+      r.recs.forEach(x => { x.file = f.name; x.sel = true; pdfState.recs.push(x); });
+      pdfState.files.push(`${f.name} (${pages.length}쪽 · 신청서 ${r.recs.length}건)`);
+      if(r.blank.length) pdfState.blank.push(`${f.name}: ${r.blank.join(', ')}쪽`);
+    }catch(e){
+      pdfState.files.push(`${f.name} — ⚠ ${e.message}`);
+    }
+  }
+  log.textContent = '';
+  renderPdfResult();
+}
+function pdfApplyRecs(recs){   // 시험용: 읽은 결과를 바로 화면에
+  pdfState = { recs: recs.map(r => Object.assign({ sel: true }, r)), files: ['(직접 입력)'], blank: [] };
+  renderPdfResult();
+}
+const PDF_COLS = [
+  ['company', '기업명', 9], ['ceo', '대표자', 5], ['room', '호실', 6], ['item', '주 생산품', 9], ['bizNo', '사업자등록번호', 8],
+  ['phone', '연락처', 7], ['email', '대표 이메일', 9], ['curPeriod', '현재 입주기간', 10], ['wantPeriod', '희망 입주기간', 10], ['applyDate', '신청일', 6],
+];
+function renderPdfResult(){
+  const box = $id('pdfResult');
+  const R = pdfState.recs;
+  if(!pdfState.files.length){ box.innerHTML = ''; return; }
+  const nRenew = R.filter(r => r.exam === '연장').length, nPromo = R.filter(r => r.exam === '승급').length;
+  const sel = (i, k, opts, v) => `<select data-pi="${i}" data-pk="${k}">${opts.map(o => `<option value="${o}" ${o === v ? 'selected' : ''}>${o || '-'}</option>`).join('')}</select>`;
+  const rows = R.map((r, i) => `<tr>
+      <td><input type="checkbox" data-pi="${i}" data-pk="sel" ${r.sel ? 'checked' : ''} style="width:auto;"></td><td>${i + 1}</td>
+      <td>${sel(i, 'exam', ['연장', '승급'], r.exam)}</td>
+      <td>${sel(i, 'track', ['', '틔움', '키움', '이룸'], r.track)}</td>
+      <td>${r.exam === '승급' ? sel(i, 'targetTrack', ['', '키움', '이룸'], r.targetTrack) : '-'}</td>
+      ${PDF_COLS.map(([k, , w]) => `<td><input type="text" data-pi="${i}" data-pk="${k}" value="${escapeHtml(r[k] || '')}" style="min-width:${w * 13}px;"></td>`).join('')}
+      <td class="pdf-warn" id="pdfWarn_${i}">${r.warn.length ? '확인: ' + r.warn.join(', ') : '✅'}</td></tr>`).join('');
+  box.innerHTML = `<div class="toolbar" style="margin-top:10px;"><h3 style="margin:0;">읽은 신청서 ${R.length}건 <span class="muted">(연장 ${nRenew} · 승급 ${nPromo})</span></h3></div>
+    <p class="muted" style="margin:4px 0;">${pdfState.files.map(escapeHtml).join('<br>')}</p>
+    ${pdfState.blank.length ? `<p class="pdf-warn">⚠ 글자가 없는 쪽(스캔 이미지 등): ${escapeHtml(pdfState.blank.join(' / '))} — 이 쪽에 신청서가 있다면 아래 표에 직접 추가하거나 "① 접수리스트 등록"에서 입력하세요.</p>` : ''}
+    <p class="hint">칸을 눌러 바로 고칠 수 있습니다. "확인" 표시는 읽지 못한 칸입니다. 주소·법인등록번호·실무자 이메일·신청 사유는 엑셀에 함께 들어갑니다.</p>
+    <div style="overflow-x:auto;"><table><thead><tr><th>등록</th><th>연번</th><th>구분</th><th>현재 트랙</th><th>신청 트랙</th>${PDF_COLS.map(([, l]) => `<th>${l}</th>`).join('')}<th>확인</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="16" class="empty">신청서 서식을 찾지 못했습니다.</td></tr>'}</tbody></table></div>
+    <div class="srv-row" style="margin-top:10px;">
+      <button type="button" class="secondary small" onclick="pdfAddRow()">+ 행 추가</button>
+      <button type="button" onclick="printPdfIntakeList()">🖨 접수리스트 출력</button>
+      <button type="button" class="secondary" onclick="exportPdfIntakeList()">엑셀 다운로드</button>
+      <button type="button" onclick="registerPdfIntake()">✔ 체크한 기업을 접수리스트에 등록</button>
+      <button type="button" class="secondary small" onclick="pdfState={recs:[],files:[],blank:[]};renderPdfResult();">지우기</button>
+    </div>
+    <div class="muted" id="pdfMsg" style="margin-top:6px;"></div>`;
+  box.querySelectorAll('[data-pi]').forEach(el => el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', () => {
+    const r = pdfState.recs[Number(el.dataset.pi)], k = el.dataset.pk;
+    r[k] = el.type === 'checkbox' ? el.checked : el.value.trim();
+    if(k === 'exam' || k === 'track'){
+      if(r.exam === '승급' && !(PROMO_TARGETS[r.track] || []).includes(r.targetTrack)) r.targetTrack = (PROMO_TARGETS[r.track] || [''])[0] || '';
+      if(r.exam === '연장') r.targetTrack = '';
+      r.warn = pdfWarnings(r); renderPdfResult(); return;
+    }
+    r.warn = pdfWarnings(r);
+    const w = $id('pdfWarn_' + el.dataset.pi);
+    if(w) w.textContent = r.warn.length ? '확인: ' + r.warn.join(', ') : '✅';
+  }));
+}
+function pdfAddRow(){
+  const r = { exam: currentExamType === '승급' ? '승급' : '연장', track: '', targetTrack: '', sel: true, file: '(직접 입력)' };
+  PDF_COLS.forEach(([k]) => { r[k] = ''; });
+  r.warn = pdfWarnings(r);
+  pdfState.recs.push(r);
+  if(!pdfState.files.length) pdfState.files.push('(직접 입력)');
+  renderPdfResult();
+}
+function pdfSortedForList(){
+  const order = { 연장:0, 승급:1 }, tr = { 틔움:0, 키움:1, 이룸:2 };
+  return pdfState.recs.filter(r => r.sel).slice().sort((a, b) => (order[a.exam] - order[b.exam]) || ((tr[a.track] ?? 9) - (tr[b.track] ?? 9)));
+}
+function printPdfIntakeList(){
+  const list = pdfSortedForList();
+  if(!list.length){ alert('출력할 기업이 없습니다. "등록" 칸을 체크하세요.'); return; }
+  const section = exam => {
+    const rs = list.filter(r => r.exam === exam);
+    if(!rs.length) return '';
+    return `<div class="sheet agg">
+      <h2>『${escapeHtml(rpSpaceName())}』 입주기업 ${exam} 신청 접수리스트</h2>
+      <p class="meta">접수 ${rs.length}건 &nbsp;|&nbsp; 출력일 : ${todayStr()}</p>
+      <table><thead><tr><th>연번</th><th>입주형태</th>${exam === '승급' ? '<th>신청 트랙</th>' : ''}<th>호실</th><th>기업명</th><th>대표자</th><th>사업자등록번호</th><th>주 생산품</th><th>연락처</th><th>이메일(대표자)</th><th>현재 입주기간</th><th>${exam === '승급' ? '(승급) 입주 희망 기간' : '입주 연장 희망 기간'}</th><th>신청일</th></tr></thead>
+      <tbody>${rs.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.track || '')}</td>${exam === '승급' ? `<td>${escapeHtml(r.targetTrack || '')}</td>` : ''}<td>${escapeHtml(r.room || '')}</td>
+        <td class="left">${escapeHtml(r.company || '')}</td><td>${escapeHtml(r.ceo || '')}</td><td>${escapeHtml(r.bizNo || '')}</td><td class="left">${escapeHtml(r.item || '')}</td>
+        <td>${escapeHtml(r.phone || '')}</td><td>${escapeHtml(r.email || '')}</td><td>${escapeHtml(r.curPeriod || '')}</td><td>${escapeHtml(r.wantPeriod || '')}</td><td>${escapeHtml(r.applyDate || '')}</td></tr>`).join('')}</tbody></table>
+      <div class="rp"><div class="signrow">${rpSign('작성자', '')}${rpSign('확인자', '')}</div></div>
+    </div>`;
+  };
+  rpOpenPrintWindow('연장·승급 신청 접수리스트', section('연장') + section('승급'), true);
+}
+function exportPdfIntakeList(){
+  const list = pdfSortedForList();
+  if(!list.length){ alert('내보낼 기업이 없습니다. "등록" 칸을 체크하세요.'); return; }
+  const head = ['연번','구분','입주형태','신청 트랙','호실','기업명','대표자','사업자등록번호','법인등록번호','주소','연락처','주 생산품','이메일(대표자)','이메일(실무자)','현재 입주기간','희망 입주기간','신청일','신청 사유','원본 파일'];
+  const rows = list.map((r, i) => [i + 1, r.exam, r.track || '', r.targetTrack || '', r.room || '', r.company || '', r.ceo || '', r.bizNo || '', r.corpNo || '', r.addr || '',
+    r.phone || '', r.item || '', r.email || '', r.emailStaff || '', r.curPeriod || '', r.wantPeriod || '', r.applyDate || '', r.reason || '', r.file || '']);
+  downloadBlob(buildXlsxBlob('연장승급_접수리스트', [head].concat(rows)), `연장승급_신청_접수리스트_${todayStr()}.xlsx`);
+}
+function registerPdfIntake(){
+  const list = pdfState.recs.filter(r => r.sel);
+  if(!list.length){ alert('등록할 기업이 없습니다. "등록" 칸을 체크하세요.'); return; }
+  const bad = list.filter(r => !r.company || !r.ceo || !(EXAM_TRACKS[r.exam] || []).includes(r.track) || (r.exam === '승급' && !(PROMO_TARGETS[r.track] || []).includes(r.targetTrack)));
+  if(bad.length){ alert('기업명·대표자·트랙을 확인하세요(연장은 키움·이룸, 승급은 틔움→키움/이룸, 키움→이룸).\n- ' + bad.map(r => r.company || '(기업명 없음)').join('\n- ')); return; }
+  let added = 0, updated = 0;
+  const cnt = { 연장:0, 승급:0 };
+  list.forEach(r => {
+    const apply = { bizNo: r.bizNo || '', corpNo: r.corpNo || '', addr: r.addr || '', emailStaff: r.emailStaff || '', curPeriod: r.curPeriod || '', wantPeriod: r.wantPeriod || '', applyDate: r.applyDate || '', reason: r.reason || '' };
+    const ex = DB.applicants.find(a => !a._srv && applicantExamType(a) === r.exam && pdfKey(a.company) === pdfKey(r.company) && String(a.ceo).replace(/\s/g, '') === String(r.ceo).replace(/\s/g, ''));
+    const fields = { track: r.track, room: r.room || '', item: r.item || '', phone: r.phone || '', email: r.email || '', apply };
+    if(r.exam === '승급') fields.targetTrack = r.targetTrack; else delete fields.targetTrack;
+    if(ex){ Object.assign(ex, fields); updated++; }
+    else { DB.applicants.push(Object.assign({ id: nextId(), examType: r.exam, no: '', company: r.company, ceo: r.ceo, bonus: {}, penalties: [], createdAt: new Date().toISOString() }, fields)); added++; }
+    cnt[r.exam]++;
+  });
+  saveDB();
+  renderApplicantTable();
+  renderApplicantOptions();
+  const other = ['연장', '승급'].filter(x => x !== currentExamType && cnt[x]);
+  $id('pdfMsg').innerHTML = `✅ 연장 ${cnt.연장}건 · 승급 ${cnt.승급}건을 접수리스트에 반영했습니다(새로 등록 ${added}건, 기존 기업 갱신 ${updated}건).` + (other.length ? ` ${other.join('·')} 기업은 위쪽 "${other.join('·')}" 탭에서 확인하세요.` : '');
+}
+(function(){
+  const dz = $id('pdfDropZone');
+  $id('pdfFileInput').addEventListener('change', e => { handlePdfFiles(e.target.files); e.target.value = ''; });
+  ['dragenter','dragover'].forEach(evt => dz.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover'); }));
+  ['dragleave','drop'].forEach(evt => dz.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover'); }));
+  dz.addEventListener('drop', e => handlePdfFiles(e.dataTransfer.files));
+})();
 
 /* ================= 탭 전환 ================= */
 document.querySelectorAll('.tab-btn').forEach(btn=>{
@@ -3478,7 +4071,8 @@ async function srvPublish(){
     extra = `\n\n승급 1차 적합 ${ok}건만 위원 평가 목록에 보입니다(부적합·1차 미입력 ${list.length - ok}건은 위원에게 보이지 않음).`;
   } else if(currentExamType === '연장'){
     const done = list.filter(a => { const s = stage1Total(a); return s && s.complete; }).length;
-    extra = `\n\n연장 1차 서류심사 입력 ${done}/${list.length}건이 함께 보관됩니다(위원에게는 보이지 않음).`;
+    const ex = list.filter(a => rpRefer(a) === '상정불가').length;
+    extra = `\n\n연장 1차 서류심사 입력 ${done}/${list.length}건이 함께 보관됩니다(위원에게는 보이지 않음).` + (ex ? `\n"상정불가" ${ex}건은 위원 평가 목록에 보이지 않습니다.` : '');
   }
   if(!confirm(`${EXAM_LABEL[currentExamType]} 신청자 ${list.length}건을 위원들에게 배포합니다.\n(이미 배포한 목록은 이 목록으로 바뀝니다. 연락처·이메일은 보내지 않습니다.)${extra}`)) return;
   list.forEach(srvEnsureSid);
@@ -3489,6 +4083,7 @@ async function srvPublish(){
     if(a.targetTrack) p.targetTrack = a.targetTrack;
     if(a.stage1) p.stage1 = a.stage1;   // 담당자 1차 결과 보관용(서버가 위원에게는 보내지 않음)
     if(currentExamType === '승급') p.s1ok = (promoResult(a) || {}).result === '적합';
+    if(currentExamType === '연장') p.s1ok = rpRefer(a) !== '상정불가';
     return p;
   });
   const info = document.getElementById('srvPublishInfo');
