@@ -2360,38 +2360,73 @@ function colIndexToLetters(idx){
   return s;
 }
 
-function buildSheetXml(rows2D, merges){
+// 엑셀 서식: 글꼴 맑은 고딕 10, 머리글은 굵게 + 연한 파란 바탕, 표 전체 가는 테두리, 열 너비는 글자 길이에 맞춤
+// opts.titleRows: 맨 위 제목 행 수(테두리 없이 굵게), opts.headerRows: 그 아래 머리글 행 수(기본 1)
+const XLSX_STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`
+  + `<fonts count="2"><font><sz val="10"/><name val="맑은 고딕"/><family val="3"/><charset val="129"/></font><font><b/><sz val="10"/><name val="맑은 고딕"/><family val="3"/><charset val="129"/></font></fonts>`
+  + `<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDDEBF7"/><bgColor indexed="64"/></patternFill></fill></fills>`
+  + `<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF808080"/></left><right style="thin"><color rgb="FF808080"/></right><top style="thin"><color rgb="FF808080"/></top><bottom style="thin"><color rgb="FF808080"/></bottom><diagonal/></border></borders>`
+  + `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>`
+  + `<cellXfs count="5">`
+  + `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>`                                                                                           // 0 기본
+  + `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>`                     // 1 본문 글자
+  + `<xf numFmtId="3" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>`  // 2 본문 숫자(천 단위 쉼표)
+  + `<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>`  // 3 머리글
+  + `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>`   // 4 제목
+  + `</cellXfs><cellStyles count="1"><cellStyle name="표준" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+// 화면에 보이는 글자 폭(한글 등 전각 2, 영문·숫자 1)
+function xlsxTextWidth(v){
+  const s = typeof v === 'number' ? v.toLocaleString('en-US') : String(v == null ? '' : v);
+  return s.split('\n').reduce((mx, line) => Math.max(mx, Array.from(line).reduce((w, ch) => w + (/[ᄀ-ᇿ⺀-꓏가-힣豈-﫿︰-﹏＀-￯]/.test(ch) ? 2 : 1), 0)), 0);
+}
+function buildSheetXml(rows2D, merges, opts){
+  opts = opts || {};
+  const titleRows = opts.titleRows || 0, headerRows = opts.headerRows == null ? 1 : opts.headerRows;
+  const nCols = rows2D.reduce((m, r) => Math.max(m, r.length), 0);
+  // 열 너비: 제목 행(여러 칸 병합)은 빼고 가장 긴 글자에 맞춤(최소 6, 최대 60)
+  const widths = Array.from({ length: nCols }, (_, c) => {
+    let w = 0;
+    rows2D.forEach((r, ri) => { if(ri >= titleRows) w = Math.max(w, xlsxTextWidth(r[c])); });
+    return Math.min(60, Math.max(6, w + 2));
+  });
+  const colsXml = `<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`;
   let rowsXml = '';
   rows2D.forEach((rowArr, rIdx)=>{
+    const isTitle = rIdx < titleRows, isHead = !isTitle && rIdx < titleRows + headerRows;
     let cellsXml = '';
-    rowArr.forEach((val, cIdx)=>{
+    // 표 안의 빈 칸도 테두리가 보이도록 열 수만큼 채움(제목 행 제외)
+    const cells = isTitle ? rowArr : Array.from({ length: nCols }, (_, i) => rowArr[i] == null ? '' : rowArr[i]);
+    cells.forEach((val, cIdx)=>{
       const ref = colIndexToLetters(cIdx) + (rIdx+1);
-      if(typeof val === 'number' && isFinite(val)){
-        cellsXml += `<c r="${ref}"><v>${val}</v></c>`;
+      const num = typeof val === 'number' && isFinite(val);
+      const s = isTitle ? 4 : isHead ? 3 : (num ? 2 : 1);
+      if(num){
+        cellsXml += `<c r="${ref}" s="${s}"><v>${val}</v></c>`;
       } else {
-        cellsXml += `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(val)}</t></is></c>`;
+        cellsXml += `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(val)}</t></is></c>`;
       }
     });
-    rowsXml += `<row r="${rIdx+1}">${cellsXml}</row>`;
+    rowsXml += `<row r="${rIdx+1}"${isTitle ? ' ht="22" customHeight="1"' : ''}>${cellsXml}</row>`;
   });
   const mergeXml = (merges && merges.length) ? `<mergeCells count="${merges.length}">${merges.map(m => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>` : "";
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowsXml}</sheetData>${mergeXml}</worksheet>`;
+  const pane = (titleRows + headerRows) > 0 ? `<sheetViews><sheetView workbookViewId="0"><pane ySplit="${titleRows + headerRows}" topLeftCell="A${titleRows + headerRows + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` : '';
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${pane}<sheetFormatPr defaultRowHeight="16.5"/>${colsXml}<sheetData>${rowsXml}</sheetData>${mergeXml}</worksheet>`;
 }
-
-function buildXlsxBlob(sheetName, rows2D, merges){
+function buildXlsxBlob(sheetName, rows2D, merges, opts){
   const encoder = new TextEncoder();
   const safeName = String(sheetName).replace(/[:\\\/\?\*\[\]]/g,'_').slice(0,31) || 'Sheet1';
-  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`;
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
   const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
   const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${escapeXml(safeName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`;
-  const workbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`;
-  const sheetXml = buildSheetXml(rows2D, merges);
+  const workbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+  const sheetXml = buildSheetXml(rows2D, merges, opts);
 
   const files = [
     {name:'[Content_Types].xml', data: encoder.encode(contentTypes)},
     {name:'_rels/.rels', data: encoder.encode(rootRels)},
     {name:'xl/workbook.xml', data: encoder.encode(workbookXml)},
     {name:'xl/_rels/workbook.xml.rels', data: encoder.encode(workbookRels)},
+    {name:'xl/styles.xml', data: encoder.encode(XLSX_STYLES)},
     {name:'xl/worksheets/sheet1.xml', data: encoder.encode(sheetXml)},
   ];
   const zipBytes = buildZip(files);
@@ -3180,7 +3215,7 @@ function exportAggRP(){
     rows2D = [keep.map(i => v.head[i])].concat(v.rows.map(r => keep.map(i => r[i].t)));
   }
   const sheetName = `${EXAM_LABEL[currentExamType]}_${(RP_VIEW_LABEL[view] || '').replace(/\s/g, '')}`;
-  downloadBlob(buildXlsxBlob(sheetName, rows2D, merges), `${sheetName}.xlsx`);
+  downloadBlob(buildXlsxBlob(sheetName, rows2D, merges, v.sheetTitle ? { titleRows: 1, headerRows: (v.xlsHead || [0]).length } : null), `${sheetName}.xlsx`);
 }
 function printAggTable(){
   const area = $id('aggArea');
