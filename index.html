@@ -2697,7 +2697,7 @@ function renderStage1EvalForm(a, area){
   // 서명 관리에서 체크한 서명 이미지가 있으면 "(서명)" 자리에 미리 보여줌
   const sign = (label, id, val, role) => {
     const sg = sigPick(role, val);
-    return `<span>${label} : <input type="text" id="${id}" class="s1-sig" value="${escapeHtml(val)}" placeholder="이름"> ${sg ? `<span class="sigwrap" title="서명 관리에서 체크한 서명">(서명)<img src="${sg.img}" alt="서명"></span>` : '(서명)'}</span>`;
+    return `<span>${label} : <input type="text" id="${id}" class="s1-sig" value="${escapeHtml(val)}" placeholder="이름" data-sigrole="${role}"> <span class="sigwrap" id="${id}_sig" title="서명 관리에서 체크한 서명">(서명)${sg ? `<img src="${sg.img}" alt="서명">` : ''}</span></span>`;
   };
   const dateIn = `<span>평가일 : <input type="text" id="s1_date" class="s1-sig" value="${escapeHtml(nm.date)}"></span>`;
   let html;
@@ -2749,12 +2749,27 @@ function renderStage1EvalForm(a, area){
       <div class="s1-extra"><div style="flex:3;min-width:220px;"><label class="muted">검토의견 (집계표에 표시 · 비워두면 자동 작성)</label><input type="text" id="s1_opinion" value="${escapeHtml((s && s.opinion) || '')}"></div></div>
     </div>`;
   }
-  html += `<div class="srv-row" style="margin-top:10px;">
+  html += `<div class="muted" id="s1SigNote" style="margin-top:8px;font-size:12.5px;"></div>
+    <div class="srv-row" style="margin-top:10px;">
       <button type="button" onclick="saveStage1('${a.id}')">1차 평가 저장</button>
       ${s ? `<button type="button" class="secondary" onclick="printStage1Sheets(['${a.id}'])">🖨 이 평가표 출력</button>` : ''}
       <span class="muted">1차 결과는 기업별로 하나만 저장됩니다(다시 저장하면 고쳐짐).</span></div>
     <div class="muted" id="s1FormMsg" style="margin-top:6px;">${s ? `마지막 저장 : ${escapeHtml(String(s.savedAt || '').replace('T', ' ').slice(0, 16))}` : ''}</div>`;
   area.innerHTML = html;
+  // 이름을 고치면 서명 미리보기·적용 안내도 바로 바뀜
+  const sigSync = () => {
+    const notes = [];
+    area.querySelectorAll('input[data-sigrole]').forEach(inp => {
+      const sg = sigPick(inp.dataset.sigrole, inp.value.trim()), w = $id(inp.id + '_sig');
+      if(w) w.innerHTML = '(서명)' + (sg ? `<img src="${sg.img}" alt="서명">` : '');
+      const label = inp.parentNode.firstChild.textContent.replace(/\s*:\s*$/, '');
+      notes.push(sg ? `${label} → <b>${escapeHtml(sg.name)}</b> 서명 자동 적용` : `${label} → 적용할 서명 없음`);
+    });
+    const n = $id('s1SigNote');
+    if(n) n.innerHTML = '✍ ' + notes.join(' · ') + (notes.some(t => /없음/.test(t)) ? ' <span style="color:#b9770e;">(관리자 → 서버 관리 → "5. 서명 관리"에서 서명을 등록하고 "적용"을 체크하세요)</span>' : '');
+  };
+  area.querySelectorAll('input[data-sigrole]').forEach(inp => inp.addEventListener('input', sigSync));
+  sigSync();
 
   if(ex === '연장'){
     const def = RENEW_STAGE1[a.track];
@@ -2922,13 +2937,16 @@ function sigSave(list){
   try{ localStorage.setItem(SIG_KEY, JSON.stringify(list)); return true; }
   catch(e){ alert('서명 이미지를 저장하지 못했습니다(브라우저 저장 공간 부족). 더 작은 이미지로 등록하세요.'); return false; }
 }
-// 체크한 서명 중 같은 역할 → 평가표에 적힌 이름과 같은 서명 우선, 없으면 첫 번째 체크한 서명
+// 체크한 서명에서 고름: ① 같은 서명 위치 + 평가표 이름과 같은 사람 ② (위치가 달라도) 이름이 같은 사람 ③ 같은 서명 위치의 첫 번째
 function sigPick(role, name){
   if(!role) return null;
-  const on = sigList().filter(s => s.on && s.role === role && s.img);
+  const on = sigList().filter(s => s.on && s.img);
   if(!on.length) return null;
   const key = v => String(v || '').replace(/\s/g, '');
-  return on.find(s => key(s.name) && key(s.name) === key(name)) || on[0];
+  const k = key(name);
+  return on.find(s => s.role === role && k && key(s.name) === k)
+      || on.find(s => k && key(s.name) === k)
+      || on.find(s => s.role === role) || null;
 }
 // 이미지 → 가로 최대 360·세로 최대 120으로 줄이고 흰 바탕을 투명하게(PNG)
 function sigProcessImage(file){
@@ -2985,6 +3003,9 @@ function sigRender(){
       <td><img src="${s.img}" alt="서명" class="sig-thumb"></td>
       <td><button type="button" class="danger small" onclick="sigDelete('${s.id}')">삭제</button></td></tr>`).join('')}</tbody></table>`
     : '<p class="empty">등록된 서명이 없습니다.</p>';
+  // 열려 있는 1차 평가표 화면의 서명 미리보기도 갱신(입력 내용은 그대로)
+  const inp = document.querySelector('#evalFormArea input[data-sigrole]');
+  if(inp) inp.dispatchEvent(new Event('input'));
 }
 
 function renewStage1TableHTML(a){
