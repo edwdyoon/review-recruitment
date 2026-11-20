@@ -165,6 +165,20 @@
   #noContentBanner{margin:20px auto;}
   #intakeForm{margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid #ececf1;}
 
+  /* ---- 연장·승급: 등급 선택형 평가표 / 1차 입력 ---- */
+  .level-table th.lv-head{font-size:12px;width:8%;}
+  .level-table td.lv-cell{padding:0;}
+  .level-table td.lv-cell label{display:flex;flex-direction:column;align-items:center;gap:2px;margin:0;padding:6px 2px;cursor:pointer;color:#444;font-size:12.5px;}
+  .level-table td.lv-cell input{width:auto;margin:0;}
+  .level-table td.lv-cell:hover{background:#f6f5fe;}
+  .level-table td.lv-cell.lv-on{background:#e9e6fd;}
+  .level-table td.lv-cell.lv-on label{color:var(--accent);font-weight:700;}
+  .s1-table td.s1-opt label{display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;}
+  .s1-table td.s1-opt input{width:auto;margin:0;}
+  .s1-table tr.s1-on td.s1-opt, .s1-table tr.s1-on td.s1-opt + td{background:#e9e6fd;font-weight:700;color:var(--accent);}
+  #stage1Panel{border-color:#c9c5f3;}
+  #stage1Form{margin-top:14px;}
+
   /* ---- 페이지 탭 (심사 안내 / 평가하기) ---- */
   .page-tabs{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid #e4e4ea;display:flex;justify-content:center;gap:8px;padding:0 16px;}
   .page-tab{background:transparent;color:#999;border:none;border-bottom:3px solid transparent;border-radius:0;padding:20px 28px 17px;font-size:16px;font-weight:700;}
@@ -445,6 +459,32 @@
     </div>
   </div>
 
+  <!-- ============ 연장·승급 1차 평가 (담당자) ============ -->
+  <div class="card" id="stage1Panel" style="display:none;">
+    <h2 id="stage1Title">1차 서류심사 (담당자)</h2>
+    <p class="hint" id="stage1Hint"></p>
+    <div class="inline-select">
+      <div>
+        <label class="muted" id="s1_evaluatorLabel">1차 평가자(담당매니저)</label>
+        <input type="text" id="s1_evaluator" placeholder="예: 이OO">
+      </div>
+      <div id="s1_chiefWrap">
+        <label class="muted">평가위원(총괄)</label>
+        <input type="text" id="s1_chief" placeholder="예: 김OO">
+      </div>
+      <div>
+        <label class="muted">평가일</label>
+        <input type="text" id="s1_date" placeholder="예: 2026-09-28">
+      </div>
+      <div style="flex:2;min-width:240px;">
+        <label class="muted">출력 서식의 공간명</label>
+        <input type="text" id="s1_space" placeholder="예: 경기창업혁신공간 북동부권(구리)">
+      </div>
+    </div>
+    <div id="stage1List"></div>
+    <div id="stage1Form"></div>
+  </div>
+
   <!-- ============ 1. 접수리스트 등록 (상단) ============ -->
   <div class="card" id="section-intake">
     <h2>① 접수리스트 등록</h2>
@@ -462,7 +502,7 @@
         <div><label>접수번호</label><input type="text" id="f_no" placeholder="예: 22531"></div>
         <div><label>기업명 / 예비창업자</label><input type="text" id="f_company" required></div>
         <div><label>대표자명</label><input type="text" id="f_ceo" required></div>
-        <div><label>트랙 구분</label>
+        <div><label id="f_trackLabel">트랙 구분</label>
           <select id="f_track" required>
             <option value="">선택</option>
             <option value="틔움">초기(틔움) Pre-BI</option>
@@ -476,6 +516,15 @@
         <div><label>창업아이템명</label><input type="text" id="f_item"></div>
         <div><label>연락처</label><input type="text" id="f_phone"></div>
         <div><label>이메일</label><input type="text" id="f_email"></div>
+      </div>
+      <div class="grid" id="f_targetRow" style="margin-top:8px;display:none;">
+        <div><label>승급 신청 트랙</label>
+          <select id="f_target">
+            <option value="">선택</option>
+            <option value="키움">도약(키움)</option>
+            <option value="이룸">성장(이룸)</option>
+          </select>
+        </div>
       </div>
 
       <div id="bonusArea" class="bonus-box" style="display:none;">
@@ -603,7 +652,7 @@
       <h2>집계 결과</h2>
       <div class="inline-select">
         <div>
-          <label class="muted">평가 회차</label>
+          <label class="muted" id="aggRoundLabel">평가 회차</label>
           <select id="agg_round" class="round-select">
             <option value="1">1차 서면평가</option>
             <option value="2">2차 발표평가</option>
@@ -625,16 +674,18 @@
             <option value="asc">저득점순</option>
           </select>
         </div>
-        <div>
-          <label class="muted">선발인원</label>
+        <div id="aggQuotaWrap">
+          <label class="muted" id="aggQuotaLabel">선발인원</label>
           <input type="number" id="agg_quota" min="0" placeholder="예: 5" style="width:90px;">
         </div>
-        <div style="display:flex;align-items:flex-end;gap:8px;">
+        <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;">
           <button type="button" class="secondary" onclick="exportAggToExcel()">📊 엑셀 다운로드</button>
-          <button type="button" class="secondary" onclick="printEvalSheets(currentFilteredApplicantIds(), document.getElementById('agg_round').value)">🖨 위원별 평가표 일괄 출력</button>
+          <button type="button" class="secondary" id="aggPrintSheetsBtn" onclick="printEvalSheets(currentFilteredApplicantIds(), document.getElementById('agg_round').value)">🖨 위원별 평가표 일괄 출력</button>
+          <button type="button" class="secondary" onclick="printAggTable()">🖨 집계표 인쇄</button>
         </div>
       </div>
-      <p class="hint">
+      <p class="hint" id="aggHintRP" style="display:none;"></p>
+      <p class="hint" id="aggHintNew">
         최종 평점 산식: <b>위원 5인 이상</b> → 최고점·최저점 각 1개 제외 후 나머지 산술평균 · <b>위원 3인</b> → 3인 전체 산술평균.
         1차 커트라인은 항목합계(A, 가점 제외) 기준 만점의 60%(틔움/키움 60점, 이룸 120점), 2차는 100점 만점의 60점입니다.
         1차 최종점수는 "평점(A) + 가·감점(B)"로 표시하되, 커트라인 판정은 A 기준입니다. 표는 항상 <b>최종점수 기준으로 정렬</b>됩니다.
@@ -791,13 +842,75 @@ const BONUS = {
   ],
 };
 
-/* ================= 심사 종류(입주/연장) =================
-   지금은 "입주"만 실제 서식이 채워져 있고, "연장"은 서식 첨부 전까지 빈 상태.
-   연장심사 공식 서식이 02_references에 추가되면 RUBRIC_BY_EXAM.연장 / BONUS_BY_EXAM.연장에
-   입주와 동일한 구조(트랙별 {1:{...},2:{...}})로 채워 넣으면, 화면 전체가 자동으로 그 서식을 사용한다. */
+/* ================= 연장·승급 평가표 (출처: 02_references/renew&promotion/붙임4. 연장 및 승급 평가표) =================
+   - 연장: 1차 서류심사(담당매니저, 정량 100점) + 2차 발표평가(위원회, 정성 100점) = 200점, 120점 이상 연장 승인
+   - 승급: 1차 서류 적합성(매출·투자·고용 중 1개 이상 충족) → 2차 발표평가(위원회, 100점), 60점 이상 고득점순 선정
+   - 2차 위원 점수 = 위원 점수에서 최고·최저를 뺀 평균(추진계획 "심사점수" 산식) */
+const LEVEL_NAMES = ['매우우수','우수','보통','미흡','매우미흡'];
+function lv5(max){ return [1, 0.8, 0.6, 0.4, 0.2].map(r => Math.round(max * r * 100) / 100); }
+function lvItem(key, label, max){ return { key, label, max, levels: lv5(max) }; }
+const RP2_TECH = { key:'tech', name:'기술성', max:40, items:[
+  lvItem('tech_level', '기술의 고도성', 20),
+  lvItem('tech_apply', '기술응용 발전성 및 모방난이도', 15),
+  lvItem('tech_hr', '기술인력 구성', 5) ]};
+const RP2_PLAN = { key:'future', name:'향후계획', max:20, items:[
+  lvItem('plan_concrete', '추진계획의 구체성', 10),
+  lvItem('plan_feasible', '추진계획의 실현가능성', 10) ]};
+// 연장 2차: 기술성 → 사업성 → 향후계획
+const RENEW_R2 = { totalA:100, levelForm:true, groups:[
+  RP2_TECH,
+  { key:'biz', name:'사업성', max:40, items:[
+    lvItem('biz_market', '시장규모 및 발전가능성', 15),
+    lvItem('biz_product', '제품 경쟁력', 20),
+    lvItem('biz_plan', '사업계획 타당성', 5) ]},
+  RP2_PLAN ]};
+// 승급 2차: 서식상 사업성 → 기술성 → 향후계획 순서
+const PROMO_R2 = { totalA:100, levelForm:true, groups:[
+  { key:'biz', name:'사업성', max:40, items:[
+    lvItem('biz_product', '제품 경쟁력', 20),
+    lvItem('biz_market', '시장규모 및 발전가능성', 15),
+    lvItem('biz_plan', '사업계획 타당성', 5) ]},
+  RP2_TECH,
+  RP2_PLAN ]};
+
+// 연장 1차 서류심사(담당매니저 정량평가) — 트랙별로 "고용" 항목만 다름
+const RENEW_S1_HEAD = [
+  { key:'patent', label:'특허 및 인증', max:10, options:[['5건 이상',10],['4건',8],['3건',6],['2건',4],['2건 미만',2]] },
+  { key:'rules', label:'제규정 준수', max:10, options:[['연체 0회',10],['연체 1회',8],['연체 2회 이상',6]] },
+  { key:'invest', label:'투자실적', max:30, options:[['3회 이상',30],['2회 이상',25],['1회 이상',20],['투자실적 없음(0회)',15]] },
+];
+const RENEW_S1_SALES = { key:'sales', label:'매출 성장률', max:30, options:[['60% 이상',30],['40% 이상 ~ 60% 미만',25],['20% 이상 ~ 40% 미만',20],['0% 이상 ~ 20% 미만',15],['0% 미만',10]] };
+const RENEW_STAGE1 = {
+  키움: { groupName:'입주 후 경영성과 및 제규정준수', total:100, items:[...RENEW_S1_HEAD,
+    { key:'employ', label:'고용충족조건', max:20,
+      hint:'예) 4인실(고용5인)=초과(20점), 4인실(고용4인)=충족(15점), 4인실(고용3인)=80%(10점), 4인실(고용2인)=80%↓(5점)',
+      options:[['호실 기준인원 초과',20],['호실 기준인원 100% 충족',15],['호실 기준인원 80% 충족',10],['호실 기준인원 80% 미달',5]] },
+    RENEW_S1_SALES ]},
+  이룸: { groupName:'입주 후 경영성과 및 제규정준수', total:100, items:[...RENEW_S1_HEAD,
+    { key:'employ', label:'신규 고용창출', max:20,
+      hint:'예) 입주시(3명) → 현재(5명) = 2명 창출(5점)',
+      options:[['5명 이상',20],['4명 이상',15],['3명 이상',10],['2명 이하',5]] },
+    RENEW_S1_SALES ]},
+};
+
+// 승급 1차 서류 적합성 — 신청(목표) 트랙 기준, 3개 중 1개 이상 충족 시 적합
+const PROMO_ITEMS = [['sales','매출액'],['invest','투자금액'],['employ','고용인원']];
+const PROMO_CRITERIA = {
+  키움: { sales:'1억원 이상 매출여부(전년도 매출액 기준)', invest:'1천만원 이상 투자유치(최근 3년 실적)', employ:'2명 이상 고용 여부(공고일 기준)' },
+  이룸: { sales:'5억원 이상 매출여부(전년도 매출액 기준)', invest:'5억원 이상 투자유치(최근 3년 실적)', employ:'4명 이상 고용 여부(공고일 기준)' },
+};
+const PROMO_TARGETS = { 틔움:['키움','이룸'], 키움:['이룸'] };
+const EXAM_TRACKS = { 신규:['틔움','키움','이룸'], 연장:['키움','이룸'], 승급:['틔움','키움'] };
+const RENEW_PASS = 120;   // 연장 승인 기준(200점 만점)
+const PROMO_PASS = 60;    // 승급 2차 최저 기준(100점 만점)
+
 // 심사 분류는 신규/연장/승급 3가지. 예전 버전에서 '입주'(또는 값 없음)로 저장된 데이터는 '신규'로 간주한다.
-// 연장·승급은 공식 서식을 받으면 신규와 같은 구조(트랙별 {1:{...},2:{...}})로 채워 넣는다.
-const RUBRIC_BY_EXAM = { 신규: RUBRIC, 연장: {}, 승급: {} };
+// 연장·승급의 위원 평가는 2차(발표)만 있다. 1차는 담당자가 신청자별로 입력한다(applicant.stage1).
+const RUBRIC_BY_EXAM = {
+  신규: RUBRIC,
+  연장: { 키움:{ 2:RENEW_R2 }, 이룸:{ 2:RENEW_R2 } },
+  승급: { 틔움:{ 2:PROMO_R2 }, 키움:{ 2:PROMO_R2 } },
+};
 const BONUS_BY_EXAM = { 신규: BONUS, 연장: {}, 승급: {} };
 const EXAM_LABEL = { 신규: '신규심사', 연장: '연장심사', 승급: '승급심사' };
 const EXAM_TYPE_KEY = 'gbsa_exam_type_v1';
@@ -934,6 +1047,12 @@ document.getElementById('intakeForm').addEventListener('submit', function(e){
   e.preventDefault();
   const track = document.getElementById('f_track').value;
   if(!track){ alert('트랙을 선택하세요.'); return; }
+  const targetTrack = currentExamType === '승급' ? document.getElementById('f_target').value : '';
+  if(currentExamType === '승급'){
+    if(!targetTrack){ alert('승급 신청 트랙(키움/이룸)을 선택하세요.'); return; }
+    if(!(PROMO_TARGETS[track] || []).includes(targetTrack)){ alert(`${track}에서 ${targetTrack}(으)로는 승급할 수 없습니다.`); return; }
+  }
+  const prevApplicant = editingApplicantId ? DB.applicants.find(a=>a.id===editingApplicantId) : null;
   const applicant = {
     id: editingApplicantId || nextId(),
     examType: currentExamType,
@@ -949,6 +1068,12 @@ document.getElementById('intakeForm').addEventListener('submit', function(e){
     penalties: collectPenalties(),
     createdAt: new Date().toISOString(),
   };
+  if(targetTrack) applicant.targetTrack = targetTrack;
+  // 수정 시 서버 식별값(sid)과 담당자 1차 평가 결과는 유지
+  if(prevApplicant){
+    if(prevApplicant.sid) applicant.sid = prevApplicant.sid;
+    if(prevApplicant.stage1) applicant.stage1 = prevApplicant.stage1;
+  }
   if(editingApplicantId){
     const idx = DB.applicants.findIndex(a=>a.id===editingApplicantId);
     DB.applicants[idx] = applicant;
@@ -1075,7 +1200,7 @@ function renderApplicantTable(){
       <td><input type="checkbox" class="applicant-check" data-id="${a.id}"></td>
       <td>${idx+1}</td>
       <td>${a.no||'-'}</td>
-      <td><span class="badge b-${a.track}">${a.track}</span></td>
+      <td><span class="badge b-${a.track}">${a.track}</span>${a.targetTrack ? ' → ' + escapeHtml(a.targetTrack) : ''}</td>
       <td class="left">${escapeHtml(a.company)}</td>
       <td>${escapeHtml(a.ceo)}</td>
       <td>${escapeHtml(a.room||'-')}</td>
@@ -1411,6 +1536,7 @@ function renderEvalForm(){
   const applicant = DB.applicants.find(a=>a.id===applicantId);
   const rubric = getRubric(applicant.track, round);
   if(!rubric){ area.innerHTML = '<p class="empty">이 트랙·회차의 평가표 서식이 아직 등록되지 않았습니다.</p>'; return; }
+  if(rubric.levelForm){ renderLevelEvalForm(applicant, rubric, round, area); return; }   // 연장·승급 2차(등급 선택형)
   const bonusSum = sumBonus(applicant);
   const penaltySum = sumPenalty(applicant);
   const bVal = bonusSum - penaltySum;
@@ -1569,6 +1695,12 @@ function saveEvaluation(){
     return;
   }
 
+  // 등급 선택형(연장·승급 2차)은 모든 세부항목을 골라야 저장
+  const missingLv = Array.from(document.querySelectorAll('#evalFormArea .score-input[data-level="1"]')).filter(inp => inp.value === '');
+  if(missingLv.length){
+    alert(`등급을 선택하지 않은 항목이 ${missingLv.length}개 있습니다.\n- ` + missingLv.map(inp => inp.dataset.label).join('\n- '));
+    return;
+  }
   const scores = {};
   document.querySelectorAll('#evalFormArea .score-input').forEach(inp=>{
     scores[inp.dataset.key] = parseFloat(inp.value)||0;
@@ -1625,6 +1757,7 @@ function loadEvaluationToForm(evalId){
     if(el) el.value = e.notes[k];
   });
   document.getElementById('ev_opinion').value = e.opinion || '';
+  syncLevelRadios();
   const applicant = DB.applicants.find(a=>a.id===e.applicantId);
   const bValForApplicant = sumBonus(applicant) - sumPenalty(applicant);
   updateSubtotals(getRubric(applicant.track, e.round), bValForApplicant, e.round);
@@ -1861,6 +1994,7 @@ function buildAggRows(round, trackFilter){
 function renderAgg(){
   const area = document.getElementById('aggArea');
   if(!aggViewUnlocked){ area.innerHTML = '<p class="empty">🔒 관리자 PIN 확인 후 열람 가능합니다. "④ 집계 결과" 탭을 다시 눌러주세요.</p>'; return; }
+  if(currentExamType !== '신규'){ renderAggRP(area); return; }
   const round = document.getElementById('agg_round').value;
   const trackFilter = document.getElementById('agg_track').value;
   const sortDir = document.getElementById('agg_sort').value; // 'desc' | 'asc'
@@ -1923,6 +2057,8 @@ function renderAgg(){
 
 /* ================= 위원별 평가표 출력(인쇄) ================= */
 function buildEvalSheetHTML(applicant, evaluation, round){
+  if(applicantExamType(applicant) === '연장') return buildRenewSheetHTML(applicant, evaluation);
+  if(applicantExamType(applicant) === '승급') return buildPromoSheetHTML(applicant, evaluation);
   const rubric = getRubricForExam(applicantExamType(applicant), applicant.track, round);
   if(!rubric) return '';
   let rows = '';
@@ -1990,9 +2126,12 @@ function buildCoverPageHTML(round, applicants, byEvaluator){
   const companyRows = sortedApplicants.map((a, idx)=>
     `<tr><td>${idx+1}</td><td class="left">${escapeHtml(a.company)}</td><td>${escapeHtml(a.ceo)}</td><td>${a.track}</td></tr>`
   ).join('');
+  const coverTitle = currentExamType === '신규'
+    ? `『경기창업혁신공간 남부권(수원)』<br>${round}차 심사위원 평가표 출력 표지`
+    : `『${escapeHtml(rpSpaceName())}』<br>${EXAM_LABEL[currentExamType]} 2차 발표평가 위원 평가표 출력 표지`;
   return `
   <div class="sheet cover">
-    <h1>『경기창업혁신공간 남부권(수원)』<br>${round}차 심사위원 평가표 출력 표지</h1>
+    <h1>${coverTitle}</h1>
     <p class="meta">출력일 : ${todayStr()} &nbsp;|&nbsp; 대상 기업 : ${applicants.length}개사 &nbsp;|&nbsp; 참여 위원 : ${evaluatorNames.length}명</p>
     <h3>■ 심사위원 서명</h3>
     <table class="cover-table">
@@ -2008,6 +2147,11 @@ function buildCoverPageHTML(round, applicants, byEvaluator){
 }
 
 function printEvalSheets(applicantIds, round){
+  // 연장·승급: 위원 평가는 2차뿐. "1차" 보기에서 누르면 담당자 1차 평가표를 출력
+  if(currentExamType !== '신규'){
+    if(String(round) === '1'){ printStage1Sheets(applicantIds); return; }
+    round = '2';
+  }
   const byTrackThenEvaluator = {}; // { track: { evaluatorName: [{applicant, evaluation}] } }
   const byEvaluatorAll = {}; // 표지(서명란)용 — 트랙 구분 없이 위원별 전체 집계
   const applicantsIncluded = [];
@@ -2071,6 +2215,7 @@ function printEvalSheets(applicantIds, round){
     table.cover-table th, table.cover-table td{border:1px solid #333;padding:8px;text-align:center;}
     table.cover-table td.left{text-align:left;}
     table.cover-table td.sign-cell{height:40px;}
+    ${RP_PRINT_CSS}
     @media print{ .toolbar{display:none;} }
   </style></head><body>
   <div class="toolbar"><button onclick="window.print()">인쇄 / PDF로 저장</button></div>
@@ -2222,6 +2367,7 @@ function downloadBlob(blob, filename){
 }
 
 function exportAggToExcel(){
+  if(currentExamType !== '신규'){ exportAggRP(); return; }
   const round = document.getElementById('agg_round').value;
   const trackFilter = document.getElementById('agg_track').value;
   const sortDir = document.getElementById('agg_sort').value;
@@ -2260,6 +2406,685 @@ function exportAggToExcel(){
   const blob = buildXlsxBlob(sheetName, rows2D);
   downloadBlob(blob, `${sheetName}.xlsx`);
 }
+
+/* =====================================================================
+   연장·승급 심사 (RP = Renew & Promotion)
+   - 1차: 담당자가 신청자별로 입력(applicant.stage1) — 연장은 정량 100점, 승급은 서류 적합성(적합/부적합)
+   - 2차: 위원회 발표평가(등급 선택형 100점) — 기존 위원 평가 흐름(round 2)을 그대로 사용
+   - 집계: 1차 집계표 / 2차 집계표 / 최종(합계) 세 가지 보기, 엑셀·인쇄
+   - 출력: 공식 평가표 서식(1차 평가자·평가위원 서명란 포함)
+   ===================================================================== */
+const $id = id => document.getElementById(id);
+const RP_META_KEY = 'gbsa_rp_stage1_meta_v1';
+function rpMeta(){ try{ return JSON.parse(localStorage.getItem(RP_META_KEY) || '{}'); }catch(e){ return {}; } }
+function rpSaveMeta(){
+  if(currentExamType === '신규') return;
+  const m = rpMeta();
+  m[currentExamType] = { evaluator: $id('s1_evaluator').value.trim(), chief: $id('s1_chief').value.trim(), date: $id('s1_date').value.trim() };
+  m.space = $id('s1_space').value.trim();
+  try{ localStorage.setItem(RP_META_KEY, JSON.stringify(m)); }catch(e){}
+}
+function rpSpaceName(){ return rpMeta().space || '경기창업혁신공간'; }
+function fmtDateKo(d){
+  const m = String(d || '').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+  return m ? `${m[1]}년 ${Number(m[2])}월 ${Number(m[3])}일` : '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;년&nbsp;&nbsp;&nbsp;&nbsp;월&nbsp;&nbsp;&nbsp;&nbsp;일';
+}
+
+/* ---- 1차 결과 계산 ---- */
+function stage1Total(a){
+  const s = a && a.stage1;
+  if(!s || !s.scores) return null;
+  const def = RENEW_STAGE1[a.track];
+  if(!def) return null;
+  let total = 0, n = 0;
+  def.items.forEach(it => { const v = s.scores[it.key]; if(v != null && v !== ''){ total += Number(v); n++; } });
+  return { total, complete: n === def.items.length };
+}
+function promoResult(a){
+  const s = a && a.stage1;
+  if(!s || !s.checks) return null;
+  const met = PROMO_ITEMS.filter(([k]) => s.checks[k]).length;
+  const auto = met >= 1 ? '적합' : '부적합';
+  return { met, auto, result: s.result || auto, target: s.target || a.targetTrack || '' };
+}
+
+/* ---- 위원 2차 평가 입력: 등급 선택형 ---- */
+function renderLevelEvalForm(applicant, rubric, round, area){
+  const exam = applicantExamType(applicant);
+  const trackTxt = (exam === '승급' && applicant.targetTrack) ? `${applicant.track} → ${applicant.targetTrack}` : applicant.track;
+  let html = `<h3>${EXAM_LABEL[exam]} 2차 발표평가표 (${trackTxt}) — ${escapeHtml(applicant.company)} (${escapeHtml(applicant.ceo)})</h3>`;
+  html += `<p class="hint">세부항목마다 해당하는 등급을 하나씩 누르세요. 모든 항목을 선택해야 저장됩니다.</p>`;
+  html += `<div style="overflow-x:auto;"><table class="score-table level-table"><thead>
+    <tr><th rowspan="2" style="width:11%;">항목</th><th rowspan="2">세부항목</th><th colspan="5">배점기준</th><th rowspan="2" style="width:8%;">평가점수</th><th rowspan="2" style="width:18%;">특이사항</th></tr>
+    <tr>${LEVEL_NAMES.map(n => `<th class="lv-head">${n}</th>`).join('')}</tr></thead><tbody>`;
+  rubric.groups.forEach(g => {
+    g.items.forEach((it, i) => {
+      html += '<tr>';
+      if(i === 0) html += `<td class="group-title" rowspan="${g.items.length + 1}">${g.name}<br><span class="muted">(${g.max}점)</span></td>`;
+      html += `<td class="left">${it.label}(${it.max})</td>`;
+      it.levels.forEach((v, li) => {
+        html += `<td class="lv-cell"><label title="${LEVEL_NAMES[li]}"><input type="radio" name="lv_${it.key}" value="${v}" data-key="${it.key}"><span>${v}</span></label></td>`;
+      });
+      html += `<td><input type="hidden" class="score-input" data-key="${it.key}" data-group="${g.key}" data-max="${it.max}" data-level="1" data-label="${g.name} - ${it.label}" value=""><b id="lvscore_${it.key}">-</b></td>`;
+      html += `<td><textarea data-note="${it.key}" class="note-input" placeholder="특이사항" rows="1"></textarea></td></tr>`;
+    });
+    html += `<tr><td class="left"><b>소계</b></td><td colspan="5"></td><td><span id="subtotal_${g.key}">0</span> / ${g.max}</td><td></td></tr>`;
+  });
+  const totalLabel = exam === '연장' ? '2차 평가 소계 (B)' : '합계';
+  html += `<tr class="total-line"><td class="left" colspan="7"><b>${totalLabel}</b></td><td colspan="2"><b><span id="grandTotal">0</span></b> / ${rubric.totalA}</td></tr>`;
+  html += `</tbody></table></div>`;
+  if(exam === '연장') html += `<p class="footer-note">※ 1차 서류심사(A, 100점)는 담당자가 입력하며, 최종 점수는 1차(A) + 2차 평점(B)으로 집계됩니다(200점 만점 중 ${RENEW_PASS}점 이상 연장 승인).</p>`;
+  html += `<div class="sheet-footer" style="margin-top:10px;text-align:right;font-size:13px;">평가일 : <span id="footerDate"></span> &nbsp;&nbsp;&nbsp; 평가위원 : <span id="footerEvaluator"></span></div>`;
+  html += `<div class="field" style="margin-top:12px;"><label>종합의견</label><textarea id="ev_opinion" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;"></textarea></div>`;
+  html += `<button type="button" onclick="saveEvaluation()">평가 저장</button>`;
+  html += `<h3 style="margin-top:20px;">이 신청자의 기존 위원 평가 기록</h3><div id="existingEvalList"></div>`;
+  area.innerHTML = html;
+  area.querySelectorAll('input[type=radio][name^="lv_"]').forEach(r => {
+    r.addEventListener('change', () => {
+      const key = r.dataset.key;
+      area.querySelector(`.score-input[data-key="${key}"]`).value = r.value;
+      syncLevelRadios();
+      updateSubtotals(rubric, 0, round);
+    });
+  });
+  syncFooter();
+  updateSubtotals(rubric, 0, round);
+  renderExistingEvaluations(applicant.id, round, rubric);
+}
+function syncLevelRadios(){
+  document.querySelectorAll('#evalFormArea .score-input[data-level="1"]').forEach(h => {
+    const k = h.dataset.key;
+    document.querySelectorAll(`#evalFormArea input[name="lv_${k}"]`).forEach(r => {
+      r.checked = h.value !== '' && Number(r.value) === Number(h.value);
+      r.closest('td').classList.toggle('lv-on', r.checked);
+    });
+    const s = document.getElementById('lvscore_' + k);
+    if(s) s.textContent = h.value !== '' ? h.value : '-';
+  });
+}
+
+/* ---- 담당자 1차 평가 화면 ---- */
+function renderStage1Panel(){
+  const ex = currentExamType;
+  if(ex === '신규') return;
+  const meta = rpMeta(), m = meta[ex] || {};
+  $id('s1_evaluator').value = m.evaluator || '';
+  $id('s1_chief').value = m.chief || '';
+  $id('s1_date').value = m.date || todayStr();
+  $id('s1_space').value = meta.space || '';
+  $id('stage1Title').textContent = ex === '연장' ? '1차 서류심사 (담당자 정량평가 · 100점)' : '1차 서류 적합성 평가 (담당자)';
+  $id('s1_evaluatorLabel').textContent = ex === '연장' ? '1차 평가자(담당매니저)' : '평가위원(담당)';
+  $id('s1_chiefWrap').style.display = ex === '승급' ? '' : 'none';
+  $id('stage1Hint').innerHTML = ex === '연장'
+    ? `연장 신청 기업의 1차 서류심사 점수를 입력합니다(특허·인증, 제규정 준수, 투자실적, 고용, 매출 성장률 — 키움은 "고용충족조건", 이룸은 "신규 고용창출"). 2차 발표평가(위원회) 평점과 합산해 <b>200점 만점 중 ${RENEW_PASS}점 이상이면 연장 승인</b>입니다. 서버를 쓰는 경우 입력 후 "접수리스트 배포"를 다시 누르면 1차 결과도 두레이에 함께 보관됩니다.`
+    : `승급 신청 기업의 서류 적합성을 확인합니다. 신청 트랙 기준 <b>매출액·투자금액·고용인원 중 1개 이상 충족 시 적합</b>이며, 적합 기업만 2차 발표평가 대상입니다. 2차는 <b>${PROMO_PASS}점 이상 고득점순</b>으로 잔여 공실만큼 선정합니다. 서버를 쓰는 경우 입력 후 "접수리스트 배포"를 다시 눌러야 위원 화면에 반영됩니다.`;
+  $id('stage1Form').innerHTML = '';
+  renderStage1List();
+}
+
+function renderStage1List(){
+  const ex = currentExamType, box = $id('stage1List');
+  if(ex === '신규'){ box.innerHTML = ''; return; }
+  const apps = sortByTrackOrder(DB.applicants.filter(a => !a._srv && applicantExamType(a) === ex));
+  if(!apps.length){ box.innerHTML = '<p class="empty">아래 "① 접수리스트 등록"에서 신청 기업을 먼저 등록하세요.</p>'; return; }
+  let done = 0, rows = '';
+  apps.forEach((a, i) => {
+    let resultHtml;
+    if(ex === '연장'){
+      const s = stage1Total(a);
+      if(s && s.complete) done++;
+      resultHtml = s ? (s.complete ? `<b>${s.total}</b> / 100` : `<span class="final-warn">입력 중 (${s.total})</span>`) : '<span class="final-fail">미입력</span>';
+    } else {
+      const p = promoResult(a);
+      if(p) done++;
+      resultHtml = p ? `<span class="${p.result === '적합' ? 'final-pass' : 'final-fail'}">${p.result}</span> <span class="muted">(${p.met}/3 충족)</span>` : '<span class="final-fail">미입력</span>';
+    }
+    const has = !!a.stage1;
+    rows += `<tr><td>${i + 1}</td>
+      <td><span class="badge b-${a.track}">${a.track}</span>${ex === '승급' ? ' → ' + escapeHtml(a.targetTrack || '?') : ''}</td>
+      <td class="left">${escapeHtml(a.company)}</td><td>${escapeHtml(a.ceo)}</td>
+      <td>${resultHtml}</td><td>${escapeHtml((a.stage1 && a.stage1.evaluator) || '-')}</td>
+      <td><button type="button" class="small" onclick="openStage1Form('${a.id}')">${has ? '수정' : '입력'}</button>
+          ${has ? `<button type="button" class="secondary small" onclick="printStage1Sheets(['${a.id}'])">출력</button>` : ''}</td></tr>`;
+  });
+  box.innerHTML = `<div class="toolbar" style="margin-top:6px;"><h3 style="margin:0;">신청 기업 ${apps.length}개사 · 입력 완료 ${done}개사</h3>
+      <button type="button" class="secondary small" onclick="printStage1Sheets(null)">🖨 1차 평가표 일괄 출력</button></div>
+    <div style="overflow-x:auto;"><table><thead><tr><th>연번</th><th>${ex === '승급' ? '현재 → 신청' : '트랙'}</th><th>기업명</th><th>대표자</th>
+      <th>${ex === '연장' ? '1차 점수(A)' : '적합 여부'}</th><th>${ex === '연장' ? '평가자' : '평가위원(담당)'}</th><th>관리</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="muted" id="stage1Msg" style="margin-top:6px;"></div>`;
+}
+
+function openStage1Form(id){
+  const a = DB.applicants.find(x => x.id === id);
+  if(!a) return;
+  const ex = applicantExamType(a), f = $id('stage1Form');
+  const head = `<h3>${ex === '연장' ? '1차 서류심사' : '1차 서류 적합성 평가'} — <span class="badge b-${a.track}">${a.track}</span> ${escapeHtml(a.company)} (${escapeHtml(a.ceo)})</h3>`;
+  const buttons = `<div class="srv-row" style="margin-top:10px;"><button type="button" onclick="saveStage1('${a.id}')">1차 평가 저장</button><button type="button" class="secondary" onclick="closeStage1Form()">닫기</button></div>`;
+  if(ex === '연장'){
+    const def = RENEW_STAGE1[a.track];
+    if(!def){ f.innerHTML = head + '<p class="empty">연장 1차 서식은 키움·이룸만 있습니다. 접수리스트에서 트랙을 확인하세요.</p>'; return; }
+    const sc = (a.stage1 && a.stage1.scores) || {};
+    let rows = '';
+    def.items.forEach(it => {
+      it.options.forEach(([lab, pts], i) => {
+        const on = sc[it.key] != null && Number(sc[it.key]) === pts;
+        rows += '<tr>';
+        if(i === 0) rows += `<td class="group-title left" rowspan="${it.options.length}">${it.label} (${it.max}점)${it.hint ? `<div class="muted" style="font-weight:normal;font-size:11.5px;">${it.hint}</div>` : ''}</td>`;
+        rows += `<td class="left s1-opt"><label><input type="radio" name="s1_${it.key}" value="${pts}" data-key="${it.key}" ${on ? 'checked' : ''}> ${lab}</label></td><td>${pts}</td>`;
+        if(i === 0) rows += `<td rowspan="${it.options.length}"><b id="s1score_${it.key}">-</b></td>`;
+        rows += '</tr>';
+      });
+    });
+    f.innerHTML = head + `<table class="score-table s1-table"><thead><tr><th style="width:26%;">세부항목</th><th>배점기준</th><th style="width:9%;">배점</th><th style="width:11%;">평가점수</th></tr></thead>
+      <tbody>${rows}<tr class="total-line"><td class="left" colspan="3"><b>1차 평가 소계 (A)</b></td><td><b><span id="s1total">0</span></b> / 100</td></tr></tbody></table>` + buttons;
+    const sync = () => {
+      let total = 0;
+      def.items.forEach(it => {
+        const r = f.querySelector(`input[name="s1_${it.key}"]:checked`);
+        $id('s1score_' + it.key).textContent = r ? r.value : '-';
+        if(r) total += Number(r.value);
+        f.querySelectorAll(`input[name="s1_${it.key}"]`).forEach(x => x.closest('tr').classList.toggle('s1-on', x.checked));
+      });
+      $id('s1total').textContent = total;
+    };
+    f.querySelectorAll('input[type=radio]').forEach(r => r.addEventListener('change', sync));
+    sync();
+  } else {
+    const s = a.stage1 || {};
+    const targets = PROMO_TARGETS[a.track] || [];
+    const tgt = s.target || a.targetTrack || targets[0] || '';
+    f.innerHTML = head + `<div class="inline-select">
+        <div><label class="muted">현재 입주 트랙</label><input type="text" value="${a.track}" disabled></div>
+        <div><label class="muted">승급 신청 트랙</label><select id="s1_target">${targets.map(t => `<option value="${t}" ${t === tgt ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      </div>
+      <table class="score-table"><thead><tr><th style="width:16%;">구분</th><th>평가항목 (신청 트랙 기준)</th><th style="width:16%;">충족 여부</th></tr></thead><tbody id="s1_promoRows"></tbody></table>
+      <div class="srv-row" style="margin-top:10px;">
+        <span>자동 판정(3개 중 1개 이상 충족 시 적합): <b id="s1_auto">-</b></span>
+        <label class="muted" style="margin:0 0 0 14px;">최종 적합 여부</label>
+        <select id="s1_result" style="width:auto;"><option value="">자동 판정 따름</option><option value="적합">적합</option><option value="부적합">부적합</option></select>
+      </div>` + buttons;
+    $id('s1_result').value = s.override ? (s.result || '') : '';
+    const checks = Object.assign({}, s.checks || {});
+    const draw = () => {
+      const t = $id('s1_target').value;
+      $id('s1_promoRows').innerHTML = PROMO_ITEMS.map(([k, label]) => `<tr><td class="group-title">${label}</td>
+        <td class="left">${(PROMO_CRITERIA[t] || {})[k] || '-'}</td>
+        <td><label style="margin:0;"><input type="checkbox" id="s1chk_${k}" ${checks[k] ? 'checked' : ''}> 충족</label></td></tr>`).join('');
+      PROMO_ITEMS.forEach(([k]) => $id('s1chk_' + k).addEventListener('change', e => { checks[k] = e.target.checked; autoTxt(); }));
+      autoTxt();
+    };
+    const autoTxt = () => {
+      const met = PROMO_ITEMS.filter(([k]) => checks[k]).length;
+      $id('s1_auto').innerHTML = met >= 1 ? `<span class="final-pass">적합</span> (${met}/3 충족)` : `<span class="final-fail">부적합</span> (0/3 충족)`;
+    };
+    $id('s1_target').addEventListener('change', draw);
+    draw();
+  }
+  f.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+function closeStage1Form(){ $id('stage1Form').innerHTML = ''; }
+
+function saveStage1(id){
+  const a = DB.applicants.find(x => x.id === id);
+  if(!a) return;
+  rpSaveMeta();
+  const ex = applicantExamType(a), f = $id('stage1Form');
+  const evaluator = $id('s1_evaluator').value.trim();
+  const date = $id('s1_date').value.trim() || todayStr();
+  if(ex === '연장'){
+    const def = RENEW_STAGE1[a.track];
+    const scores = {}, missing = [];
+    def.items.forEach(it => {
+      const r = f.querySelector(`input[name="s1_${it.key}"]:checked`);
+      if(r) scores[it.key] = Number(r.value); else missing.push(it.label);
+    });
+    if(missing.length){ alert('선택하지 않은 항목이 있습니다.\n- ' + missing.join('\n- ')); return; }
+    if(!evaluator){ alert('위쪽 "1차 평가자(담당매니저)" 칸에 이름을 입력하세요. 평가표 서명란에 들어갑니다.'); $id('s1_evaluator').focus(); return; }
+    a.stage1 = { scores, evaluator, date, savedAt: new Date().toISOString() };
+  } else {
+    const target = $id('s1_target').value;
+    const checks = {};
+    PROMO_ITEMS.forEach(([k]) => { checks[k] = $id('s1chk_' + k).checked; });
+    const met = PROMO_ITEMS.filter(([k]) => checks[k]).length;
+    const auto = met >= 1 ? '적합' : '부적합';
+    const override = $id('s1_result').value;
+    if(!evaluator){ alert('위쪽 "평가위원(담당)" 칸에 이름을 입력하세요. 평가표 서명란에 들어갑니다.'); $id('s1_evaluator').focus(); return; }
+    a.stage1 = { target, checks, auto, result: override || auto, override: !!override,
+                 evaluator, chief: $id('s1_chief').value.trim(), date, savedAt: new Date().toISOString() };
+    a.targetTrack = target;
+  }
+  saveDB();
+  closeStage1Form();
+  renderStage1List();
+  renderApplicantTable();
+  renderApplicantOptions();
+  renderAgg();
+  const msg = $id('stage1Msg');
+  if(msg){
+    let srv = false; try{ srv = srvOn(); }catch(e){}
+    msg.innerHTML = `✅ "${escapeHtml(a.company)}" 1차 평가를 저장했습니다.` + (srv ? ' 위원 화면·서버에 반영하려면 위쪽 "서버 관리 → 2. 접수리스트 배포"를 다시 누르세요.' : '');
+  }
+}
+
+/* ---- 출력(공식 서식) ---- */
+const RP_PRINT_CSS = `
+    @page{margin:10mm;}
+    .sheet.rp{padding:6px 14px;}
+    .rp h2{font-size:15px;line-height:1.4;margin:0 0 6px;}
+    .rp table{margin-top:5px;}
+    .rp table.info td{padding:4px 8px;}
+    .rp table.main th, .rp table.main td{padding:1px 5px;font-size:11px;line-height:1.35;}
+    .rp table.main thead th{background:#f0f0f0;}
+    .rp .pick{display:inline-block;min-width:16px;padding:0 4px;border:1.6px solid #111;border-radius:50%;font-weight:bold;}
+    .rp td.on{font-weight:bold;background:#f4f4f4;}
+    .rp .hintline{font-size:10px;color:#444;margin-top:2px;font-weight:normal;}
+    .rp tr.subtot td{background:#f7f7f7;font-weight:bold;}
+    .rp .signrow{display:flex;justify-content:flex-end;gap:30px;margin-top:6px;font-size:12.5px;align-items:flex-end;}
+    .rp .sig{display:inline-block;min-width:80px;border-bottom:1px solid #111;text-align:center;padding:0 6px;}
+    .rp .opinion{min-height:44px;margin-top:8px;padding:6px 8px;}
+    .rp .note{font-size:11px;color:#333;margin:4px 0 0;}
+    .rp table.chk td, .rp table.chk th{padding:7px 8px;font-size:12.5px;}
+    .agg table{width:100%;border-collapse:collapse;}
+    .agg table th, .agg table td{border:1px solid #333;padding:4px 5px;font-size:10.5px;text-align:center;}
+    .agg table td.left{text-align:left;}
+    .agg .meta{text-align:center;color:#444;margin:0 0 8px;font-size:12px;}
+    .agg .hint{font-size:11px;color:#333;margin-top:8px;}
+`;
+const RP_BASE_PRINT_CSS = `
+    body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;font-size:13px;color:#111;margin:0;}
+    .sheet{page-break-after:always;padding:20px 24px;}
+    .sheet:last-child{page-break-after:auto;}
+    h2{text-align:center;font-size:16px;margin-bottom:14px;}
+    table{width:100%;border-collapse:collapse;margin-top:10px;}
+    table.info td{border:1px solid #333;padding:6px 10px;}
+    table.info td.lbl{background:#f0f0f0;font-weight:bold;width:12%;}
+    table.main th, table.main td{border:1px solid #333;padding:6px;text-align:center;}
+    table.main td.left, table.main th.left{text-align:left;}
+    .grp{background:#f0f0f0;font-weight:bold;}
+    .opinion{margin-top:14px;border:1px solid #333;padding:10px;min-height:60px;}
+    .opinion p{margin:4px 0 0;white-space:pre-wrap;}
+    .toolbar{padding:10px 24px;background:#eef2f7;}
+    @media print{ .toolbar{display:none;} }
+`;
+function rpInfoTable(a){
+  return `<table class="info"><tr><td class="lbl">기업명</td><td>${escapeHtml(a.company)}</td><td class="lbl">대표명</td><td>${escapeHtml(a.ceo)}</td></tr></table>`;
+}
+function rpSign(label, name){ return `<span>${label} : <span class="sig">${escapeHtml(name || '')}</span> (서명)</span>`; }
+
+function renewStage1TableHTML(a){
+  const def = RENEW_STAGE1[a.track];
+  if(!def) return '<p>이 트랙은 연장 1차 서식이 없습니다.</p>';
+  const sc = (a.stage1 && a.stage1.scores) || {};
+  const nRows = def.items.reduce((s, it) => s + it.options.length, 0);
+  let rows = '', first = true;
+  def.items.forEach(it => {
+    it.options.forEach(([lab, pts], i) => {
+      const on = sc[it.key] != null && Number(sc[it.key]) === pts;
+      rows += '<tr>';
+      if(first){ rows += `<td class="grp" rowspan="${nRows}">입주 후<br>경영성과 및<br>제규정준수<br>(100점)</td>`; first = false; }
+      if(i === 0) rows += `<td class="left" rowspan="${it.options.length}"><b>${it.label}(${it.max}점)</b>${it.hint ? `<div class="hintline">${it.hint}</div>` : ''}</td>`;
+      rows += `<td class="left${on ? ' on' : ''}">${lab}</td><td${on ? ' class="on"' : ''}>${on ? `<span class="pick">${pts}</span>` : pts}</td>`;
+      if(i === 0) rows += `<td rowspan="${it.options.length}"><b>${sc[it.key] != null ? sc[it.key] : ''}</b></td>`;
+      rows += '</tr>';
+    });
+  });
+  const s = stage1Total(a);
+  return `<table class="main"><thead>
+      <tr><th colspan="5" class="left">평가항목(정량평가 100점)_1차평가</th></tr>
+      <tr><th style="width:13%;">항 목</th><th style="width:27%;">세부항목</th><th colspan="2">배점기준</th><th style="width:11%;">평가점수</th></tr></thead>
+    <tbody>${rows}<tr class="subtot"><td colspan="3">1차 평가 소계 (A)</td><td>100</td><td>${s && s.complete ? s.total : ''}</td></tr></tbody></table>
+    <div class="signrow">${rpSign('1차 평가자(담당매니저)', a.stage1 && a.stage1.evaluator)}</div>`;
+}
+function level2Rows(rubric, ev){
+  const sc = (ev && ev.scores) || {};
+  let rows = '';
+  rubric.groups.forEach(g => {
+    g.items.forEach((it, i) => {
+      const v = sc[it.key];
+      rows += '<tr>' + (i === 0 ? `<td class="grp" rowspan="${g.items.length}">${g.name}<br>(${g.max}점)</td>` : '')
+        + `<td class="left">${it.label}(${it.max})</td>`
+        + it.levels.map(x => { const on = v != null && Number(v) === x; return `<td${on ? ' class="on"' : ''}>${on ? `<span class="pick">${x}</span>` : x}</td>`; }).join('')
+        + `<td><b>${v != null ? v : ''}</b></td></tr>`;
+    });
+  });
+  return rows;
+}
+function level2Head(){
+  return `<tr><th colspan="8" class="left">평가항목(정성 평가 100점)_2차평가</th></tr>
+    <tr><th rowspan="2" style="width:11%;">항 목</th><th rowspan="2">세부항목</th><th colspan="5">배점기준</th><th rowspan="2" style="width:11%;">평가점수</th></tr>
+    <tr>${LEVEL_NAMES.map(n => `<th>${n}</th>`).join('')}</tr>`;
+}
+function buildRenewSheetHTML(a, ev){
+  const rubric = getRubricForExam('연장', a.track, '2');
+  if(!rubric) return '';
+  const B = groupTotalA(ev, rubric);
+  const s = stage1Total(a);
+  const A = s && s.complete ? s.total : null;
+  return `<div class="sheet rp">
+    <h2>『${escapeHtml(rpSpaceName())}』 입주 연장심사 평가표(${a.track})</h2>
+    ${rpInfoTable(a)}
+    ${renewStage1TableHTML(a)}
+    <table class="main"><thead>${level2Head()}</thead><tbody>${level2Rows(rubric, ev)}
+      <tr class="subtot"><td colspan="7">2차 평가 소계 (B)</td><td>${B}</td></tr>
+      <tr class="subtot"><td colspan="7">합 계 (A+B)</td><td>${A != null ? round2dp(A + B) : '(1차 미입력)'}</td></tr></tbody></table>
+    <div class="opinion"><b>□ 종합의견</b><p>${escapeHtml(ev.opinion || '')}</p></div>
+    <div class="signrow"><span>평 가 일 : ${fmtDateKo(ev.date)}</span>${rpSign('평가위원', ev.evaluator)}</div>
+  </div>`;
+}
+function buildPromoSheetHTML(a, ev){
+  const rubric = getRubricForExam('승급', a.track, '2');
+  if(!rubric) return '';
+  return `<div class="sheet rp">
+    <h2>『${escapeHtml(rpSpaceName())}』 입주 승급심사 평가표(${a.track})</h2>
+    ${rpInfoTable(a)}
+    <table class="main"><thead>${level2Head()}</thead><tbody>${level2Rows(rubric, ev)}
+      <tr class="subtot"><td colspan="7">합 계</td><td>${groupTotalA(ev, rubric)}</td></tr></tbody></table>
+    <div class="opinion"><b>□ 종합의견</b><p>${escapeHtml(ev.opinion || '')}</p></div>
+    <div class="signrow"><span>평 가 일 : ${fmtDateKo(ev.date)}</span>${rpSign('평가위원', ev.evaluator)}</div>
+  </div>`;
+}
+function buildRenewStage1SheetHTML(a){
+  return `<div class="sheet rp">
+    <h2>『${escapeHtml(rpSpaceName())}』 입주 연장심사 평가표(${a.track}) — 1차 서류심사</h2>
+    ${rpInfoTable(a)}
+    ${renewStage1TableHTML(a)}
+    <div class="signrow"><span>평 가 일 : ${fmtDateKo(a.stage1 && a.stage1.date)}</span></div>
+  </div>`;
+}
+function buildPromoStage1SheetHTML(a){
+  const s = a.stage1 || {};
+  const tgt = s.target || a.targetTrack || '';
+  const box = on => on ? '☑' : '☐';
+  const r = promoResult(a);
+  const rows = PROMO_ITEMS.map(([k, label]) => `
+    <tr><td class="grp" rowspan="2">${label}</td><td class="left">${box(tgt === '키움')} 키움 &nbsp; ${PROMO_CRITERIA.키움[k]}</td><td>${tgt === '키움' && s.checks && s.checks[k] ? 'V' : ''}</td></tr>
+    <tr><td class="left">${box(tgt === '이룸')} 이룸 &nbsp; ${PROMO_CRITERIA.이룸[k]}</td><td>${tgt === '이룸' && s.checks && s.checks[k] ? 'V' : ''}</td></tr>`).join('');
+  return `<div class="sheet rp">
+    <h2>『${escapeHtml(rpSpaceName())}』<br>입주기업 승급(키움, 이룸) 서류 적합성 평가표</h2>
+    <table class="info"><tr><td class="lbl">입주 구분</td><td colspan="3">${box(a.track === '틔움')} 틔움 &nbsp;&nbsp;&nbsp; ${box(a.track === '키움')} 키움</td></tr>
+      <tr><td class="lbl">기업명</td><td>${escapeHtml(a.company)}</td><td class="lbl">대표명</td><td>${escapeHtml(a.ceo)}</td></tr></table>
+    <table class="main chk"><thead><tr><th style="width:16%;">구분</th><th>평가항목</th><th style="width:14%;">확인사항</th></tr></thead><tbody>${rows}</tbody></table>
+    <table class="main chk"><tr><td class="left">키움 및 이룸공간 입주를 위한 서류 적합성 평가결과 적합여부</td>
+      <td style="width:14%;">여(○) ${box(r && r.result === '적합')}</td><td style="width:14%;">부(Ⅹ) ${box(r && r.result === '부적합')}</td></tr></table>
+    <p class="note">* 해당 사항에 V 표시</p>
+    <div class="signrow"><span>평가일 : ${fmtDateKo(s.date)}</span>${rpSign('평가위원(총괄)', s.chief)}</div>
+    <div class="signrow">${rpSign('평가위원(담당)', s.evaluator)}</div>
+  </div>`;
+}
+function rpOpenPrintWindow(title, bodyHtml, landscape){
+  const win = window.open('', '_blank');
+  if(!win){ alert('팝업이 차단되었습니다. 브라우저의 팝업 차단을 해제해주세요.'); return; }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(title)}</title>
+  <style>${RP_BASE_PRINT_CSS}${RP_PRINT_CSS}${landscape ? '@page{size:A4 landscape;}' : ''}</style></head><body>
+  <div class="toolbar"><button onclick="window.print()">인쇄 / PDF로 저장</button></div>
+  ${bodyHtml}
+  </body></html>`);
+  win.document.close();
+}
+function printStage1Sheets(ids){
+  const ex = currentExamType;
+  const list = sortByTrackOrder((ids ? ids.map(id => DB.applicants.find(a => a.id === id)).filter(Boolean)
+                                    : DB.applicants.filter(a => !a._srv && applicantExamType(a) === ex))
+                                .filter(a => a.stage1));
+  if(!list.length){ alert('출력할 1차 평가 결과가 없습니다. "1차 서류심사" 화면에서 먼저 입력하세요.'); return; }
+  const html = list.map(a => ex === '연장' ? buildRenewStage1SheetHTML(a) : buildPromoStage1SheetHTML(a)).join('');
+  rpOpenPrintWindow(`${EXAM_LABEL[ex]} 1차 평가표`, html);
+}
+
+/* ---- 집계: 1차 집계표 / 2차 집계표 / 최종 ---- */
+function rpModel(){
+  const exam = currentExamType, trackFilter = $id('agg_track').value;
+  const quotaRaw = $id('agg_quota').value, quota = quotaRaw !== '' ? parseInt(quotaRaw, 10) : null;
+  const ms = sortByTrackOrder(DB.applicants.filter(a => applicantExamType(a) === exam && (!trackFilter || a.track === trackFilter))).map(a => {
+    const rubric = getRubric(a.track, '2');
+    const evals = rubric ? DB.evaluations.filter(e => e.applicantId === a.id && String(e.round) === '2').sort((x, y) => x.evaluator.localeCompare(y.evaluator, 'ko')) : [];
+    const scores = evals.map(e => groupTotalA(e, rubric));
+    const t = trimmedAverage(scores);
+    const m = { a, rubric, evals, scores, t, B: t ? round2dp(t.value) : null };
+    if(exam === '연장'){
+      const s = stage1Total(a);
+      m.s1 = s;
+      m.A = s && s.complete ? s.total : null;
+      m.total = (m.A != null && m.B != null) ? round2dp(m.A + m.B) : null;
+      m.status = m.total == null ? 'pending' : (m.total >= RENEW_PASS ? 'pass' : 'fail');
+    } else {
+      m.p = promoResult(a);
+    }
+    return m;
+  });
+  if(exam === '승급'){
+    // 1차 적합 + 2차 60점 이상을 2차 평점 높은 순으로 잔여 공실만큼 선정
+    let rank = 0;
+    ms.slice().sort((x, y) => (y.B == null ? -1 : y.B) - (x.B == null ? -1 : x.B)).forEach(m => {
+      if(!m.p) m.status = 's1none';
+      else if(m.p.result !== '적합') m.status = 's1fail';
+      else if(m.B == null) m.status = 'pending';
+      else if(m.B < PROMO_PASS) m.status = 'below';
+      else { rank++; m.status = (quota != null && rank > quota) ? 'over' : 'pass'; }
+    });
+  }
+  return ms;
+}
+const RP_STATUS = {
+  pass:   { 연장:'연장 승인', 승급:'선정', cls:'final-pass' },
+  fail:   { 연장:'미승인', cls:'final-fail' },
+  pending:{ 연장:'평가 미완료', 승급:'2차 미평가', cls:'final-warn' },
+  s1none: { 승급:'1차 미평가', cls:'final-warn' },
+  s1fail: { 승급:'1차 부적합', cls:'final-fail' },
+  below:  { 승급:`미달(${PROMO_PASS}점 미만)`, cls:'final-fail' },
+  over:   { 승급:'선정 외(공실 부족)', cls:'final-fail' },
+};
+function rpCell(t, h, cls){ const s = t == null ? '' : String(t); return { t: s, h: h != null ? h : escapeHtml(s), cls: cls || '' }; }
+function rpSortBy(ms, key, dir){
+  return ms.sort((x, y) => {
+    const a = key(x), b = key(y), am = a == null, bm = b == null;
+    if(am && bm) return 0; if(am) return 1; if(bm) return -1;
+    return dir === 'asc' ? a - b : b - a;
+  });
+}
+function rpTrackCell(a){
+  return currentExamType === '승급'
+    ? rpCell(`${a.track}→${a.targetTrack || '?'}`, `<span class="badge b-${a.track}">${a.track}</span>→${escapeHtml(a.targetTrack || '?')}`)
+    : rpCell(a.track, `<span class="badge b-${a.track}">${a.track}</span>`);
+}
+const RP_VIEW_LABEL = { final:'최종 집계', '1':'1차 집계표', '2':'2차 집계표' };
+function rpView(view){
+  const exam = currentExamType, dir = $id('agg_sort').value;
+  const ms = rpModel();
+  const btn = (label, js) => rpCell('', `<button class="secondary small" onclick="${js}">${label}</button>`);
+  const noBtn = () => rpCell('', '-');
+  const rank = (ms2, key) => { let n = 0; return m => key(m) == null ? '-' : ++n; };
+  let head = [], rows = [], hint = '', summary = '';
+  if(view === '1' && exam === '연장'){
+    rpSortBy(ms, m => m.s1 ? m.s1.total : null, dir);
+    const items = ['patent','rules','invest','employ','sales'];
+    head = ['순위','트랙','기업명','대표자','특허 및 인증(10)','제규정 준수(10)','투자실적(30)','고용(20)','매출 성장률(30)','1차 소계(A)','1차 평가자','평가일','출력'];
+    const rk = rank(ms, m => m.s1 ? m.s1.total : null);
+    ms.forEach(m => {
+      const sc = (m.a.stage1 && m.a.stage1.scores) || {};
+      rows.push([rpCell(rk(m)), rpTrackCell(m.a), rpCell(m.a.company, null, 'left'), rpCell(m.a.ceo),
+        ...items.map(k => rpCell(sc[k] != null ? sc[k] : '-')),
+        m.s1 ? rpCell(m.s1.complete ? m.s1.total : `입력 중(${m.s1.total})`, m.s1.complete ? `<b>${m.s1.total}</b>` : `<span class="final-warn">입력 중(${m.s1.total})</span>`) : rpCell('미입력', '<span class="final-fail">미입력</span>'),
+        rpCell((m.a.stage1 && m.a.stage1.evaluator) || '-'), rpCell((m.a.stage1 && m.a.stage1.date) || '-'),
+        m.a.stage1 ? btn('출력', `printStage1Sheets(['${m.a.id}'])`) : noBtn()]);
+    });
+    hint = '1차 서류심사(담당매니저 정량평가, 100점). 고용 항목은 키움 "고용충족조건", 이룸 "신규 고용창출"입니다. 점수 입력은 "평가하기" 탭의 "1차 서류심사" 화면에서 합니다.';
+    summary = `입력 완료 ${ms.filter(m => m.s1 && m.s1.complete).length} / ${ms.length}개사`;
+  } else if(view === '1' && exam === '승급'){
+    head = ['연번','현재 트랙','신청 트랙','기업명','대표자','매출액','투자금액','고용인원','충족 수','적합 여부','평가위원(총괄)','평가위원(담당)','평가일','출력'];
+    ms.forEach((m, i) => {
+      const s = m.a.stage1 || {}, c = s.checks || {}, p = m.p;
+      const ox = k => m.p ? rpCell(c[k] ? '○' : '×') : rpCell('-');
+      rows.push([rpCell(i + 1), rpCell(m.a.track, `<span class="badge b-${m.a.track}">${m.a.track}</span>`), rpCell((p && p.target) || m.a.targetTrack || '-'),
+        rpCell(m.a.company, null, 'left'), rpCell(m.a.ceo), ox('sales'), ox('invest'), ox('employ'),
+        rpCell(p ? `${p.met}/3` : '-'),
+        p ? rpCell(p.result, `<span class="${p.result === '적합' ? 'final-pass' : 'final-fail'}">${p.result}</span>${s.override ? ' <span class="muted">(수동)</span>' : ''}`) : rpCell('미입력', '<span class="final-fail">미입력</span>'),
+        rpCell(s.chief || '-'), rpCell(s.evaluator || '-'), rpCell(s.date || '-'),
+        m.a.stage1 ? btn('출력', `printStage1Sheets(['${m.a.id}'])`) : noBtn()]);
+    });
+    hint = '1차 서류 적합성 평가 — 신청 트랙 기준 매출액·투자금액·고용인원 중 1개 이상 충족 시 적합(키움: 1억원·1천만원·2명 / 이룸: 5억원·5억원·4명). 적합 기업만 2차 발표평가 대상입니다.';
+    summary = `적합 ${ms.filter(m => m.p && m.p.result === '적합').length} · 부적합 ${ms.filter(m => m.p && m.p.result === '부적합').length} · 미입력 ${ms.filter(m => !m.p).length}`;
+  } else if(view === '2'){
+    rpSortBy(ms, m => m.B, dir);
+    head = ['순위','트랙','기업명','대표자','위원수','위원별 점수','최고','최저','산출방식','2차 평점','출력'];
+    const rk = rank(ms, m => m.B);
+    ms.forEach(m => {
+      const has = m.scores.length > 0;
+      rows.push([rpCell(rk(m)), rpTrackCell(m.a), rpCell(m.a.company, null, 'left'), rpCell(m.a.ceo), rpCell(m.evals.length),
+        rpCell(m.evals.map((e, i) => `${e.evaluator} ${m.scores[i]}`).join(', ') || '-', null, 'left'),
+        rpCell(has ? Math.max(...m.scores) : '-'), rpCell(has ? Math.min(...m.scores) : '-'),
+        rpCell(m.t ? m.t.method : '-', m.t ? `<span style="font-size:11px;">${m.t.method}</span>${m.t.warn ? ' <span class="final-warn">⚠</span>' : ''}` : '-'),
+        rpCell(m.B != null ? m.B.toFixed(2) : '-', m.B != null ? `<b>${m.B.toFixed(2)}</b>` : '-'),
+        has ? btn('출력', `printEvalSheets(['${m.a.id}'], '2')`) : noBtn()]);
+    });
+    hint = '2차 발표평가(위원회, 100점) — 위원 5인 이상은 최고점·최저점을 1개씩 빼고 평균, 3인은 전체 평균입니다(추진계획의 "심사점수" 산식).';
+    summary = `위원 평가가 있는 기업 ${ms.filter(m => m.scores.length).length} / ${ms.length}개사`;
+  } else if(exam === '연장'){
+    rpSortBy(ms, m => m.total, dir);
+    head = ['순위','트랙','기업명','대표자','1차(A) /100','2차 평점(B) /100','합계(A+B) /200','결과','출력'];
+    const rk = rank(ms, m => m.total);
+    ms.forEach(m => {
+      const st = RP_STATUS[m.status];
+      rows.push([rpCell(rk(m)), rpTrackCell(m.a), rpCell(m.a.company, null, 'left'), rpCell(m.a.ceo),
+        rpCell(m.A != null ? m.A : '-'), rpCell(m.B != null ? m.B.toFixed(2) : '-'),
+        rpCell(m.total != null ? m.total.toFixed(2) : '-', m.total != null ? `<b>${m.total.toFixed(2)}</b>` : '-'),
+        rpCell(st.연장, `<span class="${st.cls}">${st.연장}</span>`),
+        m.evals.length ? btn('평가표', `printEvalSheets(['${m.a.id}'], '2')`) : noBtn()]);
+    });
+    hint = `최종 점수 = 1차 서류심사(A) + 2차 발표평가 평점(B). <b>200점 만점 중 ${RENEW_PASS}점 이상이면 연장 승인</b>입니다. "평가표"는 위원별 공식 평가표(1차·2차·합계·서명란)를 출력합니다.`;
+    summary = `연장 승인 ${ms.filter(m => m.status === 'pass').length} · 미승인 ${ms.filter(m => m.status === 'fail').length} · 평가 미완료 ${ms.filter(m => m.status === 'pending').length}`;
+  } else {
+    rpSortBy(ms, m => (m.p && m.p.result === '적합') ? m.B : null, dir);
+    head = ['순위','현재→신청','기업명','대표자','1차 적합성','2차 평점 /100','결과','출력'];
+    const rk = rank(ms, m => (m.p && m.p.result === '적합') ? m.B : null);
+    ms.forEach(m => {
+      const st = RP_STATUS[m.status];
+      rows.push([rpCell(rk(m)), rpTrackCell(m.a), rpCell(m.a.company, null, 'left'), rpCell(m.a.ceo),
+        rpCell(m.p ? m.p.result : '미입력', m.p ? `<span class="${m.p.result === '적합' ? 'final-pass' : 'final-fail'}">${m.p.result}</span>` : '<span class="final-warn">미입력</span>'),
+        rpCell(m.B != null ? m.B.toFixed(2) : '-', m.B != null ? `<b>${m.B.toFixed(2)}</b>` : '-'),
+        rpCell(st.승급, `<span class="${st.cls}">${st.승급}</span>`),
+        m.evals.length ? btn('평가표', `printEvalSheets(['${m.a.id}'], '2')`) : noBtn()]);
+    });
+    const q = $id('agg_quota').value;
+    hint = `1차 적합 기업 중 2차 평점 <b>${PROMO_PASS}점 이상</b>을 고득점순으로 선정합니다. "잔여 공실" 칸에 선정 가능 수를 넣으면 그 수만큼만 "선정"으로 표시됩니다${q === '' ? '(비워두면 기준 통과 기업 모두 선정)' : ''}.`;
+    summary = `선정 ${ms.filter(m => m.status === 'pass').length} · 선정 외 ${ms.filter(m => m.status === 'over').length} · 미달 ${ms.filter(m => m.status === 'below').length} · 1차 부적합 ${ms.filter(m => m.status === 's1fail').length} · 미평가 ${ms.filter(m => m.status === 'pending' || m.status === 's1none').length}`;
+  }
+  return { head, rows, hint, summary, title: `${EXAM_LABEL[exam]} ${RP_VIEW_LABEL[view] || ''}` };
+}
+function renderAggRP(area){
+  const view = $id('agg_round').value || 'final';
+  const v = rpView(view);
+  $id('aggHintRP').innerHTML = v.hint;
+  if(!v.rows.length){ area.innerHTML = '<p class="empty">해당 조건의 신청자가 없습니다.</p>'; return; }
+  area.innerHTML = `<p class="muted" style="margin:0 0 6px;"><b>${v.title}</b> · ${v.summary}</p>
+    <div style="overflow-x:auto;"><table><thead><tr>${v.head.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${v.rows.map(r => `<tr>${r.map(c => `<td class="${c.cls}">${c.h}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function exportAggRP(){
+  const view = $id('agg_round').value || 'final';
+  const v = rpView(view);
+  if(!v.rows.length){ alert('내보낼 데이터가 없습니다.'); return; }
+  const keep = v.head.map((h, i) => h === '출력' ? -1 : i).filter(i => i >= 0);
+  const rows2D = [keep.map(i => v.head[i])].concat(v.rows.map(r => keep.map(i => r[i].t)));
+  const sheetName = `${EXAM_LABEL[currentExamType]}_${(RP_VIEW_LABEL[view] || '').replace(/\s/g, '')}`;
+  downloadBlob(buildXlsxBlob(sheetName, rows2D), `${sheetName}.xlsx`);
+}
+function printAggTable(){
+  const area = $id('aggArea');
+  if(!aggViewUnlocked || !area.querySelector('table')){ alert('인쇄할 집계표가 없습니다. "④ 집계 결과" 탭에서 먼저 집계표를 여세요.'); return; }
+  const clone = area.cloneNode(true);
+  // "출력" 같은 버튼 열은 인쇄에서 뺀다
+  const table = clone.querySelector('table');
+  const ths = Array.from(table.querySelectorAll('thead th'));
+  const dropIdx = ths.map((th, i) => /출력|평가표/.test(th.textContent) && th.textContent.length <= 8 ? i : -1).filter(i => i >= 0);
+  table.querySelectorAll('tr').forEach(tr => { dropIdx.slice().reverse().forEach(i => { if(tr.children[i]) tr.children[i].remove(); }); });
+  clone.querySelectorAll('button').forEach(b => b.remove());
+  const roundSel = $id('agg_round'), trackSel = $id('agg_track');
+  const title = currentExamType === '신규'
+    ? `${EXAM_LABEL[currentExamType]} ${roundSel.options[roundSel.selectedIndex].text} 집계표`
+    : `『${rpSpaceName()}』 ${EXAM_LABEL[currentExamType]} ${roundSel.options[roundSel.selectedIndex].text}`;
+  const hintEl = currentExamType === '신규' ? $id('aggHintNew') : $id('aggHintRP');
+  rpOpenPrintWindow(title, `<div class="sheet agg">
+    <h2>${escapeHtml(title)}</h2>
+    <p class="meta">출력일 : ${todayStr()} &nbsp;|&nbsp; 트랙 : ${escapeHtml(trackSel.options[trackSel.selectedIndex].text)}</p>
+    ${clone.innerHTML}
+    <p class="hint">${hintEl ? hintEl.innerHTML : ''}</p>
+    <div class="rp"><div class="signrow">${rpSign('작성자', '')}${rpSign('확인자', '')}</div></div>
+  </div>`, true);
+}
+
+/* ---- 심사 분류별 화면 전환 ---- */
+function rpSetOptions(id, opts){
+  const sel = $id(id);
+  if(!sel) return;
+  if(sel._origHtml == null) sel._origHtml = sel.innerHTML;
+  const cur = sel.value;
+  if(!opts) sel.innerHTML = sel._origHtml;
+  else sel.innerHTML = opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+  sel.value = Array.from(sel.options).some(o => o.value === cur) ? cur : (sel.options[0] ? sel.options[0].value : '');
+}
+function rpFilterTrackSelect(id){
+  const sel = $id(id);
+  if(!sel) return;
+  if(!sel._allOpts) sel._allOpts = Array.from(sel.options).map(o => [o.value, o.textContent]);
+  const allowed = EXAM_TRACKS[currentExamType] || [];
+  rpSetOptions(id, sel._allOpts.filter(([v]) => v === '' || allowed.includes(v)));
+}
+function rpApplyVisibility(){
+  let srv = false, admin = false;
+  try{ srv = srvOn(); admin = srvIsAdmin(); }catch(e){}   // 서버 모듈이 아직 준비되기 전(초기 렌더)에는 오프라인으로 간주
+  $id('stage1Panel').style.display = (currentExamType !== '신규' && (!srv || admin)) ? '' : 'none';
+}
+let rpLastExam = null;
+function rpApplyExamUI(){
+  const ex = currentExamType, rp = ex !== '신규';
+  ['f_track', 'ev_track', 'agg_track', 'applicantTrackFilter'].forEach(rpFilterTrackSelect);
+  // 심사 분류를 바꾸면 트랙 필터는 "전체"로(이전 분류의 필터 때문에 신청자가 안 보이는 일 방지)
+  if(rpLastExam !== null && rpLastExam !== ex) ['ev_track', 'agg_track', 'applicantTrackFilter'].forEach(id => { $id(id).value = ''; });
+  rpLastExam = ex;
+  $id('f_trackLabel').textContent = ex === '승급' ? '현재 입주 트랙' : '트랙 구분';
+  $id('f_targetRow').style.display = ex === '승급' ? '' : 'none';
+  document.querySelectorAll('#intakeForm .penalty-box').forEach(el => el.style.display = rp ? 'none' : '');
+  rpSetOptions('ev_round', rp ? [['2', '2차 발표평가(위원회)']] : null);
+  rpSetOptions('my_round', rp ? [['', '전체'], ['2', '2차 발표평가']] : null);
+  rpSetOptions('agg_round', rp ? [['final', '최종 집계(1차+2차)'], ['1', '1차 집계표'], ['2', '2차 집계표']] : null);
+  $id('aggRoundLabel').textContent = rp ? '집계 보기' : '평가 회차';
+  $id('aggQuotaWrap').style.display = ex === '연장' ? 'none' : '';
+  $id('aggQuotaLabel').textContent = ex === '승급' ? '잔여 공실(선정 가능 수)' : '선발인원';
+  $id('aggHintNew').style.display = rp ? 'none' : '';
+  $id('aggHintRP').style.display = rp ? '' : 'none';
+  $id('aggPrintSheetsBtn').textContent = rp ? '🖨 평가표 일괄 출력' : '🖨 위원별 평가표 일괄 출력';
+  if(rp) renderStage1Panel();
+  rpApplyVisibility();
+}
+['s1_evaluator', 's1_chief', 's1_date', 's1_space'].forEach(id => $id(id).addEventListener('input', rpSaveMeta));
+
+const _applyExamTypeUI_rp = applyExamTypeUI;
+applyExamTypeUI = function(){ _applyExamTypeUI_rp(); rpApplyExamUI(); };
+const _editApplicant_rp = editApplicant;
+editApplicant = function(id){
+  _editApplicant_rp(id);
+  const a = DB.applicants.find(x => x.id === id);
+  $id('f_target').value = (a && a.targetTrack) || '';
+};
+// 승급 2차: 1차 적합 기업만 위원 선택 목록에 표시
+const _renderApplicantOptions_rp = renderApplicantOptions;
+renderApplicantOptions = function(){
+  _renderApplicantOptions_rp();
+  if(currentExamType !== '승급') return;
+  const sel = $id('ev_applicant');
+  Array.from(sel.options).forEach(o => {
+    if(!o.value) return;
+    const a = DB.applicants.find(x => x.id === o.value);
+    if(!a) return;
+    const ok = a._srv ? a.s1ok !== false : ((promoResult(a) || {}).result === '적합');
+    if(!ok) o.remove();
+  });
+  if(sel.value && !Array.from(sel.options).some(o => o.value === sel.value)) sel.value = '';
+};
+// 접수리스트가 바뀌면 1차 목록도 갱신
+const _renderApplicantTable_rp = renderApplicantTable;
+renderApplicantTable = function(){ _renderApplicantTable_rp(); if(currentExamType !== '신규') renderStage1List(); };
 
 /* ================= 탭 전환 ================= */
 document.querySelectorAll('.tab-btn').forEach(btn=>{
@@ -2647,11 +3472,25 @@ async function srvSaveEvaluators(){
 async function srvPublish(){
   const list = DB.applicants.filter(a => !a._srv && applicantExamType(a) === currentExamType);
   if(!list.length){ alert(`배포할 ${EXAM_LABEL[currentExamType]} 신청자가 없습니다. 먼저 "① 접수리스트 등록"에 등록하세요.`); return; }
-  if(!confirm(`${EXAM_LABEL[currentExamType]} 신청자 ${list.length}건을 위원들에게 배포합니다.\n(이미 배포한 목록은 이 목록으로 바뀝니다. 연락처·이메일은 보내지 않습니다.)`)) return;
+  let extra = '';
+  if(currentExamType === '승급'){
+    const ok = list.filter(a => (promoResult(a) || {}).result === '적합').length;
+    extra = `\n\n승급 1차 적합 ${ok}건만 위원 평가 목록에 보입니다(부적합·1차 미입력 ${list.length - ok}건은 위원에게 보이지 않음).`;
+  } else if(currentExamType === '연장'){
+    const done = list.filter(a => { const s = stage1Total(a); return s && s.complete; }).length;
+    extra = `\n\n연장 1차 서류심사 입력 ${done}/${list.length}건이 함께 보관됩니다(위원에게는 보이지 않음).`;
+  }
+  if(!confirm(`${EXAM_LABEL[currentExamType]} 신청자 ${list.length}건을 위원들에게 배포합니다.\n(이미 배포한 목록은 이 목록으로 바뀝니다. 연락처·이메일은 보내지 않습니다.)${extra}`)) return;
   list.forEach(srvEnsureSid);
   saveDB();
-  const payload = list.map(a => ({ sid: a.sid, no: a.no, company: a.company, ceo: a.ceo, track: a.track,
-                                   room: a.room, item: a.item, bonus: a.bonus || {}, penalties: a.penalties || [] }));
+  const payload = list.map(a => {
+    const p = { sid: a.sid, no: a.no, company: a.company, ceo: a.ceo, track: a.track,
+                room: a.room, item: a.item, bonus: a.bonus || {}, penalties: a.penalties || [] };
+    if(a.targetTrack) p.targetTrack = a.targetTrack;
+    if(a.stage1) p.stage1 = a.stage1;   // 담당자 1차 결과 보관용(서버가 위원에게는 보내지 않음)
+    if(currentExamType === '승급') p.s1ok = (promoResult(a) || {}).result === '적합';
+    return p;
+  });
   const info = document.getElementById('srvPublishInfo');
   info.textContent = '배포 중…';
   try{
@@ -2671,7 +3510,11 @@ async function srvImportAll(){
     // 이 PC에 없는 신청자(다른 PC에서 배포했거나 이 PC의 자료가 지워진 경우)는 서버에 배포된 목록으로 채운다
     let restored = 0;
     (r.applicants || []).forEach(x => {
-      if(bySid[x.sid]) return;
+      if(bySid[x.sid]){
+        // 이 PC에 1차 결과가 없으면 서버에 보관된 1차 결과로 채운다
+        if(!bySid[x.sid].stage1 && x.stage1){ bySid[x.sid].stage1 = x.stage1; if(x.targetTrack && !bySid[x.sid].targetTrack) bySid[x.sid].targetTrack = x.targetTrack; }
+        return;
+      }
       const a = Object.assign({}, x, { id: nextId(), examType: exam, phone: '', email: '', createdAt: new Date().toISOString() });
       DB.applicants.push(a); bySid[a.sid] = a; restored++;
     });
@@ -2785,6 +3628,7 @@ function srvApplyUI(){
   const cnt = document.getElementById('srvLocalCount');
   if(cnt) cnt.textContent = DB.applicants.filter(a => !a._srv && applicantExamType(a) === currentExamType).length;
   if(typeof updateEvaluatorBar === 'function') updateEvaluatorBar();
+  if(typeof rpApplyVisibility === 'function') rpApplyVisibility();   // 연장·승급 1차 화면(관리자만)
   if(on){
     document.getElementById('privacyNote').innerHTML = '<b>*개인정보처리 :</b><br>평가 결과는 경기도경제과학진흥원 업무용 클라우드(두레이)에 저장되며, 심사 목적 외로 사용하거나 제3자에게 제공하지 않습니다. 접속코드는 다른 사람과 공유하지 마십시오.';
     document.getElementById('guideStorageNote').innerHTML = '평가 결과는 저장할 때마다 서버(두레이)로 전송됩니다.<br>상단에 "서버 미전송"이 표시되면 "다시 시도"를 눌러주세요.<br>공용 컴퓨터에서는 평가가 끝난 뒤 반드시 로그아웃하십시오.';
