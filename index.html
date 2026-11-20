@@ -576,7 +576,11 @@
 
     <div class="toolbar">
       <h3 style="margin:0;">등록된 접수리스트 <span class="muted" id="applicantCount"></span></h3>
-      <button type="button" class="danger" onclick="bulkDeleteApplicants()">🗑 선택 일괄 삭제</button>
+      <span style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button type="button" class="secondary" onclick="exportRegisteredList()">📊 엑셀 다운로드</button>
+        <button type="button" class="secondary" onclick="printRegisteredList()">🖨 출력 / PDF 저장</button>
+        <button type="button" class="danger" onclick="bulkDeleteApplicants()">🗑 선택 일괄 삭제</button>
+      </span>
     </div>
     <div class="inline-select" style="margin-bottom:8px;">
       <div>
@@ -3661,6 +3665,9 @@ function pdfSortedForList(){
 function printPdfIntakeList(){
   const list = pdfSortedForList();
   if(!list.length){ alert('출력할 기업이 없습니다. "등록" 칸을 체크하세요.'); return; }
+  printIntakeRecs(list);
+}
+function printIntakeRecs(list){
   const section = exam => {
     const rs = list.filter(r => r.exam === exam);
     if(!rs.length) return '';
@@ -3674,15 +3681,58 @@ function printPdfIntakeList(){
       <div class="rp"><div class="signrow">${rpSign('작성자', '')}${rpSign('확인자', '')}</div></div>
     </div>`;
   };
-  rpOpenPrintWindow('연장·승급 신청 접수리스트', section('연장') + section('승급'), true);
+  const exams = ['연장', '승급'].filter(x => list.some(r => r.exam === x));
+  rpOpenPrintWindow(`${exams.join('·')} 신청 접수리스트`, section('연장') + section('승급'), true);
 }
 function exportPdfIntakeList(){
   const list = pdfSortedForList();
   if(!list.length){ alert('내보낼 기업이 없습니다. "등록" 칸을 체크하세요.'); return; }
-  const head = ['연번','구분','입주형태','신청 트랙','호실','기업명','대표자','사업자등록번호','법인등록번호','주소','연락처','주 생산품','이메일(대표자)','이메일(실무자)','현재 입주기간','희망 입주기간','신청일','신청 사유','원본 파일'];
-  const rows = list.map((r, i) => [i + 1, r.exam, r.track || '', r.targetTrack || '', r.room || '', r.company || '', r.ceo || '', r.bizNo || '', r.corpNo || '', r.addr || '',
-    r.phone || '', r.item || '', r.email || '', r.emailStaff || '', r.curPeriod || '', r.wantPeriod || '', r.applyDate || '', r.reason || '', r.file || '']);
-  downloadBlob(buildXlsxBlob('연장승급_접수리스트', [head].concat(rows)), `연장승급_신청_접수리스트_${todayStr()}.xlsx`);
+  exportIntakeRecs(list, `연장승급_신청_접수리스트_${todayStr()}.xlsx`);
+}
+function exportIntakeRecs(list, filename){
+  const withFile = list.some(r => r.file);
+  const head = ['연번','구분','입주형태','신청 트랙','호실','기업명','대표자','사업자등록번호','법인등록번호','주소','연락처','주 생산품','이메일(대표자)','이메일(실무자)','현재 입주기간','희망 입주기간','신청일','신청 사유'];
+  if(withFile) head.push('원본 파일');
+  const rows = list.map((r, i) => {
+    const row = [i + 1, r.exam, r.track || '', r.targetTrack || '', r.room || '', r.company || '', r.ceo || '', r.bizNo || '', r.corpNo || '', r.addr || '',
+      r.phone || '', r.item || '', r.email || '', r.emailStaff || '', r.curPeriod || '', r.wantPeriod || '', r.applyDate || '', r.reason || ''];
+    if(withFile) row.push(r.file || '');
+    return row;
+  });
+  downloadBlob(buildXlsxBlob('접수리스트', [head].concat(rows)), filename);
+}
+
+/* ---- 등록된 접수리스트(앱에 저장된 신청자)를 그대로 엑셀·출력 — 다시 접속해도 사용 가능 ---- */
+function registeredApplicants(){
+  const tf = $id('applicantTrackFilter').value;
+  return sortByTrackOrder(DB.applicants.filter(a => !a._srv && applicantExamType(a) === currentExamType && (!tf || a.track === tf)));
+}
+function applicantToRec(a){
+  const p = a.apply || {};
+  return { exam: applicantExamType(a), track: a.track || '', targetTrack: a.targetTrack || '', room: a.room || '', company: a.company || '', ceo: a.ceo || '',
+    item: a.item || '', phone: a.phone || '', email: a.email || '', bizNo: p.bizNo || '', corpNo: p.corpNo || '', addr: p.addr || '', emailStaff: p.emailStaff || '',
+    curPeriod: p.curPeriod || '', wantPeriod: p.wantPeriod || '', applyDate: p.applyDate || '', reason: p.reason || '' };
+}
+const NEW_LIST_HEAD = ['연번','접수번호','트랙','기업명','대표자','신청공간','창업아이템명','연락처','이메일'];
+const newListRow = (a, i) => [i + 1, a.no || '', a.track || '', a.company || '', a.ceo || '', a.room || '', a.item || '', a.phone || '', a.email || ''];
+function exportRegisteredList(){
+  const list = registeredApplicants();
+  if(!list.length){ alert('등록된 접수리스트가 없습니다.'); return; }
+  const name = `${EXAM_LABEL[currentExamType].replace('심사', '')}_접수리스트_${todayStr()}.xlsx`;
+  if(currentExamType === '신규') downloadBlob(buildXlsxBlob('신규_접수리스트', [NEW_LIST_HEAD].concat(list.map(newListRow))), name);
+  else exportIntakeRecs(list.map(applicantToRec), name);
+}
+function printRegisteredList(){
+  const list = registeredApplicants();
+  if(!list.length){ alert('등록된 접수리스트가 없습니다.'); return; }
+  if(currentExamType !== '신규'){ printIntakeRecs(list.map(applicantToRec)); return; }
+  rpOpenPrintWindow('신규 신청 접수리스트', `<div class="sheet agg">
+    <h2>『${escapeHtml(rpSpaceName())}』 입주기업 신규 신청 접수리스트</h2>
+    <p class="meta">접수 ${list.length}건 &nbsp;|&nbsp; 출력일 : ${todayStr()}</p>
+    <table><thead><tr>${NEW_LIST_HEAD.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${list.map((a, i) => `<tr>${newListRow(a, i).map((v, k) => `<td${k === 3 || k === 6 ? ' class="left"' : ''}>${escapeHtml(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>
+    <div class="rp"><div class="signrow">${rpSign('작성자', '')}${rpSign('확인자', '')}</div></div>
+  </div>`, true);
 }
 function registerPdfIntake(){
   const list = pdfState.recs.filter(r => r.sel);
