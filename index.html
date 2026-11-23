@@ -525,10 +525,11 @@
     <p class="hint">기업들이 낸 <b>연장·승급 신청서 PDF</b>(여러 기업을 합친 파일도 가능)를 넣으면 신청서 내용을 읽어 접수리스트로 정리합니다. 내용을 확인·수정한 뒤 <b>접수리스트 출력</b>, <b>엑셀 다운로드</b>, <b>앱 접수리스트에 등록</b>을 할 수 있습니다. PDF는 이 브라우저 안에서만 읽으며 서버로 보내지 않습니다.</p>
     <div class="dropzone" id="pdfDropZone">
       <p>📂 신청서 PDF 파일을 여기로 끌어다 놓으세요</p>
-      <p class="muted">또는 <button type="button" class="secondary small" onclick="document.getElementById('pdfFileInput').click()">PDF 선택</button> · 한글(HWP)에서 PDF로 저장한 신청서 기준(스캔 이미지 PDF는 글자를 읽을 수 없음)</p>
+      <p class="muted">또는 <button type="button" class="secondary small" onclick="document.getElementById('pdfFileInput').click()">PDF 선택</button> · 한글(HWP)에서 PDF로 저장한 신청서는 바로 읽고, 스캔(그림) PDF는 글자 인식으로 읽음(내용 확인 필요)</p>
       <input type="file" id="pdfFileInput" accept=".pdf,application/pdf" multiple style="display:none;">
       <div id="pdfLog" class="muted"></div>
     </div>
+    <label class="muted" style="display:flex;align-items:center;gap:6px;margin:4px 0 0;font-weight:normal;"><input type="checkbox" id="pdfOcrAll" style="width:auto;margin:0;"> 스캔(그림) PDF는 모든 쪽을 글자 인식 — 여러 기업 신청서를 한 파일로 스캔한 경우(쪽당 10초 안팎, 기본은 파일마다 첫 쪽만)</label>
     <div class="srv-row" style="margin-top:10px;">
       <b style="font-size:13.5px;">이미 등록한 접수리스트</b>
       <button type="button" class="secondary small" onclick="exportRegisteredList()">📊 엑셀 다운로드</button>
@@ -3577,16 +3578,86 @@ function pdfItemsToText(items, mode){
   return out;
 }
 
-async function pdfExtractPages(file){
+function pdfLoadScript(src){
+  return new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = src; sc.onload = resolve;
+    sc.onerror = () => reject(new Error('도구를 불러오지 못했습니다. 인터넷 연결을 확인하세요.'));
+    document.head.appendChild(sc);
+  });
+}
+
+/* ---- 스캔(이미지) PDF: 글자 인식(OCR) ----
+   - 한글 서류를 스캔한 PDF는 글자 정보가 없어 그림으로만 들어 있음 → 쪽을 그림으로 그려 글자 인식
+   - 공개 라이브러리 Tesseract.js(한국어+영어)를 필요할 때만 불러와 이 브라우저 안에서 처리(서버 전송 없음)
+   - 처음 한 번은 인식 모델(약 15MB)을 내려받고, 이후에는 브라우저에 저장된 것을 씀 */
+const TESS_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+let ocrWorkerP = null, ocrLogFn = null;
+function ocrWorker(){
+  if(ocrWorkerP) return ocrWorkerP;
+  ocrWorkerP = (window.Tesseract ? Promise.resolve() : pdfLoadScript(TESS_URL))
+    .then(() => window.Tesseract.createWorker(['kor', 'eng'], 1, { logger: m => { if(ocrLogFn) ocrLogFn(m); } }))
+    .then(async w => { await w.setParameters({ tessedit_pageseg_mode: '3', preserve_interword_spaces: '1' }); return w; })
+    .catch(e => { ocrWorkerP = null; throw new Error('글자 인식 도구를 불러오지 못했습니다. 인터넷 연결을 확인하세요.'); });
+  return ocrWorkerP;
+}
+async function ocrRelease(){
+  if(!ocrWorkerP) return;
+  try{ const w = await ocrWorkerP; await w.terminate(); }catch(e){}
+  ocrWorkerP = null;
+}
+// 인식 잘 되게: 흑백으로 바꾸고 표 테두리(긴 가로·세로 선)를 지움 — 회색 칸·선 때문에 칸 안 글자를 놓치는 것을 줄임
+function ocrPrepCanvas(c, thr){
+  thr = thr || 170;
+  const x = c.getContext('2d'), W = c.width, H = c.height;
+  const d = x.getImageData(0, 0, W, H), p = d.data, g = new Uint8Array(W * H);
+  for(let i = 0, j = 0; i < p.length; i += 4, j++) g[j] = (0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]) < thr ? 0 : 255;
+  const minH = Math.round(W * 0.06), minV = Math.round(H * 0.03);
+  for(let y = 0; y < H; y++){ let s = -1; for(let k = 0; k <= W; k++){ const dark = k < W && g[y * W + k] === 0; if(dark && s < 0) s = k; if(!dark && s >= 0){ if(k - s >= minH) for(let q = s; q < k; q++) g[y * W + q] = 255; s = -1; } } }
+  for(let k = 0; k < W; k++){ let s = -1; for(let y = 0; y <= H; y++){ const dark = y < H && g[y * W + k] === 0; if(dark && s < 0) s = y; if(!dark && s >= 0){ if(y - s >= minV) for(let q = s; q < y; q++) g[q * W + k] = 255; s = -1; } } }
+  for(let i = 0, j = 0; i < p.length; i += 4, j++){ p[i] = p[i + 1] = p[i + 2] = g[j]; p[i + 3] = 255; }
+  x.putImageData(d, 0, 0);
+  return c;
+}
+async function ocrPage(page){
+  const v1 = page.getViewport({ scale: 1 });
+  const vp = page.getViewport({ scale: Math.min(5, 2480 / v1.width) });   // A4 가로 약 2,480픽셀(300dpi 정도)
+  const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+  const cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, c.width, c.height);
+  await page.render({ canvasContext: cx, viewport: vp }).promise;
+  ocrPrepCanvas(c);
+  const w = await ocrWorker();
+  const r = await w.recognize(c);
+  const H = c.height, data = r.data || {};
+  if(Array.isArray(data.lines) && data.lines.length)
+    return data.lines.map(l => ({ str: String(l.text || '').replace(/\n/g, ' ').trim(), x: l.bbox.x0, y: H - l.bbox.y0, w: l.bbox.x1 - l.bbox.x0, h: Math.max(10, l.bbox.y1 - l.bbox.y0) })).filter(it => it.str);
+  return String(data.text || '').split('\n').filter(s => s.trim()).map((s, i) => ({ str: s, x: 0, y: 100000 - i * 40, w: s.length * 20, h: 30 }));
+}
+
+// opts.ocrAll: 스캔 쪽을 모두 인식(기본은 파일마다 첫 번째 스캔 쪽만 — 보통 신청서가 첫 쪽)
+async function pdfExtractPages(file, opts){
+  opts = opts || {};
   const lib = await loadPdfJs();
   const buf = await file.arrayBuffer();
   const doc = await lib.getDocument({ data: new Uint8Array(buf), cMapUrl: PDFJS_BASE + 'cmaps/', cMapPacked: true, standardFontDataUrl: PDFJS_BASE + 'standard_fonts/' }).promise;
   const pages = [];
+  let scannedSeen = 0;
   for(let i = 1; i <= doc.numPages; i++){
     const page = await doc.getPage(i);
     const tc = await page.getTextContent();
-    pages.push({ no: i, items: tc.items.filter(it => typeof it.str === 'string').map(it => ({
-      str: it.str, x: it.transform[4], y: it.transform[5], w: it.width || 0, h: it.height || Math.abs(it.transform[3]) || 10 })) });
+    const items = tc.items.filter(it => typeof it.str === 'string').map(it => ({
+      str: it.str, x: it.transform[4], y: it.transform[5], w: it.width || 0, h: it.height || Math.abs(it.transform[3]) || 10 }));
+    const pg = { no: i, items };
+    if(items.map(it => it.str).join('').replace(/\s/g, '').length < 15){
+      pg.scanned = true;
+      if(opts.ocrAll || scannedSeen === 0){
+        if(opts.onOcr) opts.onOcr(i, doc.numPages);
+        pg.items = await ocrPage(page);
+        pg.ocr = true;
+      }
+      scannedSeen++;
+    }
+    pages.push(pg);
     page.cleanup && page.cleanup();
   }
   doc.destroy && doc.destroy();
@@ -3595,28 +3666,46 @@ async function pdfExtractPages(file){
 
 /* ---- 글에서 신청서 칸 값 찾기 ---- */
 const pdfSp = s => s.split('').map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s*');   // 글자 사이 띄어쓰기 허용
-const PDF_LABELS = [
-  ['ceo', new RegExp(pdfSp('대표자'))],
-  ['bizNo', new RegExp(pdfSp('사업자등록번호'))],
-  ['corpNo', new RegExp(pdfSp('법인등록번호'))],
-  ['addr', new RegExp(pdfSp('주소'))],
-  ['phone', new RegExp(pdfSp('전화번호'))],
-  ['product', new RegExp(pdfSp('주생산품'))],
-  ['emailCeo', new RegExp('E\\s*-?\\s*MAIL\\s*\\(?\\s*' + pdfSp('대표자') + '\\s*\\)?', 'i')],
-  ['emailStaff', new RegExp('E\\s*-?\\s*MAIL\\s*\\(?\\s*' + pdfSp('실무자') + '\\s*\\)?', 'i')],
-  ['period', new RegExp(pdfSp('입주기간') + '\\s*\\(?\\s*' + pdfSp('협약기간') + '\\s*\\)?')],
-  ['curPeriod', new RegExp(pdfSp('현재입주기간'))],
-  ['wantPeriod', new RegExp('(' + pdfSp('입주연장희망기간') + '|\\(?\\s*' + pdfSp('승급') + '\\s*\\)?\\s*' + pdfSp('입주희망기간') + ')')],
-  ['reason', new RegExp(pdfSp('신청사유'))],
-  ['end', new RegExp('(' + pdfSp('운영규정과절차') + '|' + pdfSp('재단법인경기도') + '|' + pdfSp('첨부서류') + ')')],
-];
+// 글자 인식 결과용: 4글자 이상 칸 이름은 한 글자가 틀려도 찾음(예: 사엄자등록번호, 것화번호, 해약 기간)
+function pdfFz(s, fz){
+  if(!fz || s.length < 4) return pdfSp(s);
+  const ch = s.split(''), esc = c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const alts = [pdfSp(s)];
+  ch.forEach((c, i) => { if(/[가-힣]/.test(c)) alts.push(ch.map((d, j) => j === i ? '[가-힣]' : esc(d)).join('\\s*')); });
+  return '(?:' + alts.join('|') + ')';
+}
+const PDF_MAIL = 'E\\s*[-—–_]?\\s*MAIL';
+function pdfLabels(fz){
+  return [
+    ['ceo', new RegExp(pdfSp('대표자'))],
+    ['bizNo', new RegExp(pdfFz('사업자등록번호', fz))],
+    ['corpNo', new RegExp(pdfFz('법인등록번호', fz))],
+    ['addr', new RegExp(pdfSp('주소'))],
+    ['phone', new RegExp(pdfFz('전화번호', fz))],
+    ['product', new RegExp(pdfFz('주생산품', fz))],
+    ['emailCeo', fz ? new RegExp(PDF_MAIL, 'i') : new RegExp(PDF_MAIL + '\\s*\\(?\\s*' + pdfSp('대표자') + '\\s*\\)?', 'i')],
+    ['emailStaff', fz ? new RegExp(PDF_MAIL, 'i') : new RegExp(PDF_MAIL + '\\s*\\(?\\s*' + pdfSp('실무자') + '\\s*\\)?', 'i')],
+    ['period', new RegExp(pdfFz('입주기간', fz) + '\\s*\\(?\\s*' + pdfFz('협약기간', fz) + '\\s*\\)?')],
+    ['curPeriod', new RegExp(pdfFz('현재입주기간', fz))],
+    ['wantPeriod', new RegExp('(' + pdfFz('입주연장희망기간', fz) + '|\\(?\\s*' + pdfSp('승급') + '\\s*\\)?\\s*' + pdfFz('입주희망기간', fz) + ')')],
+    ['reason', new RegExp(pdfFz('신청사유', fz))],
+    ['end', new RegExp('(' + pdfFz('운영규정과절차', fz) + '|' + pdfFz('재단법인경기도', fz) + '|' + pdfFz('첨부서류', fz) + (fz ? '|' + pdfFz('이의를제기', fz) + '|' + pdfFz('확약하며', fz) + '|' + pdfFz('사업계획서', fz) : '') + ')')],
+  ];
+}
+const PDF_LABELS = pdfLabels(false), PDF_LABELS_FZ = pdfLabels(true);
 const PDF_COMPANY_RX = new RegExp(pdfSp('기업명'), 'g');
-const PDF_BIZNO_RX = new RegExp(pdfSp('사업자등록번호'));
+const PDF_BIZNO_RX = PDF_LABELS[1][1];
 const PDF_TITLE_RX = new RegExp(pdfSp('입주') + '\\s*(' + pdfSp('연장') + '|' + pdfSp('승급') + ')\\s*' + pdfSp('신청서'), 'g');
 const PDF_MARK = /[■☑▣✔✓√●◼◆▶vVＶ]/;
 
 function pdfClean(v){
   return String(v || '').replace(/[\u0000-\u001f\u007f​﻿]/g, ' ').replace(/\s+/g, ' ').replace(/^[\s:：|]+|[\s:：|]+$/g, '').replace(/^(신청기업\s*)?현\s*황\s*/, '').replace(/\s*신청기업\s*현?\s*황?\s*$/, '').trim();
+}
+// 글자 인식 잡음(표 선 조각 |, _, ㅣ, 、 등)과 앞뒤의 짧은 영문·숫자 조각 제거
+function pdfOcrClean(v){
+  let s = String(v || '').replace(/[|｜ㅣ_、，。！!`'‘’"“”~]/g, ' ').replace(/\s+/g, ' ').trim();
+  s = s.replace(/^(?:[A-Za-z0-9.,:;\-@#*&%=+]{1,3}\s+)+/, '').replace(/(?:\s+[A-Za-z0-9.,:;\-]{1,2})+$/, '');
+  return pdfClean(s);
 }
 function pdfName(v){
   const c = pdfClean(v).replace(/\(\s*인\s*\)|\(?\s*서명\s*\)?/g, '').trim();
@@ -3628,17 +3717,21 @@ function pdfDates(v){
   while((m = rx.exec(String(v || '')))) out.push(`${m[1]}.${m[2].padStart(2, '0')}.${m[3].padStart(2, '0')}`);
   if(out.length >= 2) return out;
   // 글자 순서가 뒤섞여 읽힌 경우("2025 01년 월01일") 또는 2자리 연도("’25.01.01."): 숫자만 차례로 모아 연·월·일로
+  // 글자 인식에서 "년"·"월"이 9로 읽힌 경우("20259 79 31일" = 2025년 7월 31일)도 연·월 자리에서만 바로잡음
   const nums = String(v || '').match(/\d+/g) || [], alt = [];
   for(let i = 0; i + 2 < nums.length; i++){
-    const y = nums[i].length === 4 && /^20/.test(nums[i]) ? nums[i] : (nums[i].length === 2 && /^[12]/.test(nums[i]) ? '20' + nums[i] : null);
-    const mo = Number(nums[i + 1]), d = Number(nums[i + 2]);
+    const yy = /^20\d{2}9$/.test(nums[i]) ? nums[i].slice(0, 4) : nums[i];
+    const y = yy.length === 4 && /^20/.test(yy) ? yy : (yy.length === 2 && /^[12]/.test(yy) ? '20' + yy : null);
+    let mo = Number(nums[i + 1]);
+    if(mo > 12 && /^[1-9]9$/.test(nums[i + 1])) mo = Number(nums[i + 1][0]);
+    const d = Number(nums[i + 2]);
     if(y && mo >= 1 && mo <= 12 && d >= 1 && d <= 31){ alt.push(`${y}.${String(mo).padStart(2, '0')}.${String(d).padStart(2, '0')}`); i += 2; }
   }
   return alt.length > out.length ? alt : out;
 }
 function pdfPeriod(v){ const d = pdfDates(v); return d.length >= 2 ? `${d[0]} ~ ${d[1]}` : (d[0] || pdfClean(v)); }
 
-function pdfTrackInfo(header){
+function pdfTrackInfo(header, fz){
   const h = header.replace(/\s+/g, ' ');
   const pick = (track, rx, unitA, unitB) => {
     const m = h.match(rx);
@@ -3647,18 +3740,28 @@ function pdfTrackInfo(header){
     const before = h.slice(Math.max(0, m.index - 3), m.index);
     return { track, marked: PDF_MARK.test(before), filled: !!(a || b), room: [a ? a + unitA : '', b ? b + unitB : ''].filter(Boolean).join(' ') };
   };
+  // 글자 인식 결과는 괄호를 빠뜨리기도 해서 괄호를 꼭 요구하지 않음(값은 숫자·영문만)
+  const val = fz ? '\\(?\\s*([0-9A-Za-z]{0,4})\\s*\\)?' : '\\(([^()]*)\\)';
   const cands = [
-    pick('틔움', new RegExp('\\(\\s*' + pdfSp('틔움') + '\\s*\\)\\s*\\(([^()]*)\\)\\s*' + pdfSp('인석') + '\\s*\\/?\\s*\\(([^()]*)\\)\\s*번'), '인석', '번'),
-    pick('키움', new RegExp('\\(\\s*' + pdfSp('키움') + '\\s*\\)\\s*\\(([^()]*)\\)\\s*' + pdfSp('인실') + '\\s*\\/?\\s*\\(([^()]*)\\)\\s*호'), '인실', '호'),
-    pick('이룸', new RegExp('\\(\\s*' + pdfSp('이룸') + '\\s*\\)\\s*\\(([^()]*)\\)\\s*TYPE\\s*\\/?\\s*\\(([^()]*)\\)\\s*호', 'i'), 'TYPE', '호'),
+    pick('틔움', new RegExp('\\(?\\s*' + pdfSp('틔움') + '\\s*\\)?\\s*' + val + '\\s*' + pdfSp('인석') + '\\s*\\/?\\s*' + val + '\\s*번'), '인석', '번'),
+    pick('키움', new RegExp('\\(?\\s*' + pdfSp('키움') + '\\s*\\)?\\s*' + val + '\\s*' + pdfSp('인실') + '\\s*\\/?\\s*' + val + '\\s*호?'), '인실', '호'),
+    pick('이룸', new RegExp('\\(?\\s*' + pdfSp('이룸') + '\\s*\\)?\\s*' + val + '\\s*TYPE\\s*\\/?\\s*' + val + '\\s*호', 'i'), 'TYPE', '호'),
   ].filter(Boolean);
-  const best = cands.find(c => c.filled && c.marked) || cands.find(c => c.filled) || cands.find(c => c.marked) || null;
+  let best = cands.find(c => c.filled && c.marked) || cands.find(c => c.filled) || cands.find(c => c.marked) || null;
+  if(!best && fz){
+    // 트랙 글자를 못 읽었어도 "( 4 )인실 / ( 202 )" 처럼 숫자가 적힌 칸으로 판단
+    const k = h.match(/\(?\s*(\d{1,2})\s*\)?\s*인\s*실\s*\/?\s*\(?\s*(\d{2,4})?/), t = h.match(/\(?\s*(\d{1,2})\s*\)?\s*인\s*석\s*\/?\s*\(?\s*(\d{1,3})?/);
+    if(k) best = { track:'키움', room: k[1] + '인실' + (k[2] ? ' ' + k[2] + '호' : '') };
+    else if(t) best = { track:'틔움', room: t[1] + '인석' + (t[2] ? ' ' + t[2] + '번' : '') };
+  }
   const titles = Array.from(header.matchAll(PDF_TITLE_RX));
   const title = titles.length ? (/승/.test(titles[titles.length - 1][1]) ? '승급' : '연장') : '';
   return { track: best ? best.track : '', room: best ? best.room : '', title, hasTium: cands.some(c => c.track === '틔움'), hasIrum: cands.some(c => c.track === '이룸') };
 }
 
-function parseApplicationsText(text){
+// fz: 글자 인식(스캔) 결과 — 칸 이름 한 글자 틀림 허용, "기업명" 칸을 못 읽으면 "대표자" 줄을 기준으로
+function parseApplicationsText(text, fz){
+  const L = fz ? PDF_LABELS_FZ : PDF_LABELS, BIZ = L[1][1], CEO = L[0][1];
   const recs = [];
   const anchors = [];
   let m;
@@ -3669,7 +3772,20 @@ function parseApplicationsText(text){
     // 다음 신청서 제목·입주 형태·기업명 전까지 안에서 대표자·사업자등록번호 칸이 나와야 신청서
     const cut = after.search(new RegExp(PDF_TITLE_RX.source + '|' + pdfSp('입주형태') + '|' + pdfSp('기업명')));
     if(cut >= 0) after = after.slice(0, cut);
-    if(PDF_BIZNO_RX.test(after) && PDF_LABELS[0][1].test(after.slice(0, 400))) anchors.push({ s: m.index, e: m.index + m[0].length });
+    const bizOk = BIZ.test(after) || (fz && (/\d{3}\s*[-—–]\s*\d{2}\s*[-—–]\s*\d{5}/.test(after) || L[2][1].test(after)));
+    if(bizOk && CEO.test(after.slice(0, 400))) anchors.push({ s: m.index, e: m.index + m[0].length });
+  }
+  if(fz){
+    const rx = new RegExp(pdfSp('대표자'), 'g');
+    while((m = rx.exec(text))){
+      if(/\(\s*$/.test(text.slice(Math.max(0, m.index - 3), m.index))) continue;   // "(대표자)" — 이메일·신청인 칸
+      if(anchors.some(a => m.index >= a.s && m.index - a.e < 500)) continue;   // 이미 기업명으로 찾은 신청서
+      const near = text.slice(m.index, m.index + 600);
+      if(!(BIZ.test(near) || /\d{3}\s*[-—–]\s*\d{2}\s*[-—–]\s*\d{5}/.test(near) || L[2][1].test(near))) continue;
+      const ls = text.lastIndexOf('\n', m.index) + 1;
+      anchors.push({ s: ls, e: ls });
+    }
+    anchors.sort((a, b) => a.s - b.s);
   }
   let prevEnd = 0;
   anchors.forEach((an, i) => {
@@ -3678,7 +3794,7 @@ function parseApplicationsText(text){
     // 칸 이름을 순서대로 찾아 사이의 글을 값으로
     const found = [];
     let pos = 0;
-    PDF_LABELS.forEach(([k, rx]) => {
+    L.forEach(([k, rx]) => {
       const mm = body.slice(pos).match(rx);
       if(mm){ found.push({ k, s: pos + mm.index, e: pos + mm.index + mm[0].length }); pos = pos + mm.index + mm[0].length; }
     });
@@ -3688,7 +3804,7 @@ function parseApplicationsText(text){
     const tail = endF ? body.slice(endF.s, endF.s + 400) : '';
     const header = text.slice(Math.max(prevEnd, an.s - 900), an.s);
     prevEnd = an.e + (endF ? endF.e : 0);
-    const ti = pdfTrackInfo(header);
+    const ti = pdfTrackInfo(header, fz);
     let exam = ti.title;
     if(!exam){
       // 제목을 못 읽은 경우: "(승급) 입주 희망 기간" 칸이나 틔움 칸이 있으면 승급 신청서
@@ -3698,25 +3814,49 @@ function parseApplicationsText(text){
     }
     if(ti.track === '틔움') exam = '승급';
     if(ti.track === '이룸') exam = '연장';
-    const biz = (String(raw.bizNo || '').replace(/\s/g, '').match(/(\d{3})-?(\d{2})-?(\d{5})/) || []);
-    const corp = (String(raw.corpNo || '').replace(/\s/g, '').match(/(\d{6})-?(\d{7})/) || []);
-    const phone = (String(raw.phone || '').match(/(0\d{1,2})[\s\-.)]*(\d{3,4})[\s\-.]*(\d{4})/) || []);
-    const mail = v => (String(v || '').replace(/\s+/g, '').match(/[\w.+\-]+@[\w\-]+(\.[\w\-]+)+/) || [''])[0];
-    const sign = tail.match(/(20\d{2})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
-    const reason = pdfClean(raw.reason).replace(/\s*(경기)?\s*창업혁신공간[^.。]{0,30}$/, '').trim();
+    const flat = s => String(s || '').replace(/[—–]/g, '-').replace(/\s/g, '');
+    const head1 = body.slice(0, 700);
+    let biz = (flat(raw.bizNo).match(/(\d{3})-?(\d{2})-?(\d{5})/) || []);
+    if(!biz[0] && fz) biz = (flat(head1).match(/(\d{3})-(\d{2})-(\d{5})/) || []);
+    let corp = (flat(raw.corpNo).match(/(\d{6})-?(\d{7})/) || []);
+    if(!corp[0] && fz) corp = (flat(head1).match(/(\d{6})-?(\d{7})/) || []);
+    let phone = (String(raw.phone || '').replace(/[—–]/g, '-').match(/(0\d{1,2})[\s\-.)]*(\d{3,4})[\s\-.]*(\d{4})/) || []);
+    if(!phone[0] && fz) phone = (head1.replace(/[—–]/g, '-').match(/(01\d|0[2-6]\d?)[\s\-.)]+(\d{3,4})[\s\-.]+(\d{4})/) || []);
+    const MAIL_RX = /[\w.+\-]+@[\w\-]+(\.[\w\-]+)+/g;
+    const mail = v => (String(v || '').replace(/\s+/g, '').match(MAIL_RX) || [''])[0];
+    let email = fz ? '' : mail(raw.emailCeo), emailStaff = fz ? '' : mail(raw.emailStaff);
+    if(!email && !emailStaff){
+      // 칸 이름과 값 순서가 뒤바뀌어 읽힌 경우: 신청서 안의 메일 주소를 차례로(대표자 → 실무자)
+      // 띄어쓰기는 살려서(한 줄에 두 주소가 있어도 붙지 않게) @ 앞뒤 빈칸만 없앰
+      const all = (body.slice(0, endF ? endF.s : body.length).replace(/\s*@\s*/g, '@').match(MAIL_RX) || []);
+      email = all[0] || ''; emailStaff = all[1] || '';
+    }
+    const sign = tail.match(/(20\d{2})\s*년\s*(\d{1,2})\s*월?\s*\D{0,3}\s*(\d{1,2})\s*일/);
+    const clean = fz ? pdfOcrClean : pdfClean;
+    const reason = clean(String(raw.reason || '').split(/\s(?:[-·•]|1\s*\.)\s*입주\s*기간/)[0]).replace(/\s*(경기)?\s*창업혁신공간[^.。]{0,30}$/, '').trim();
     const track = ti.track || '';
     const rec = {
       exam, track, targetTrack: exam === '승급' ? (track === '키움' ? '이룸' : (track === '틔움' ? '키움' : '')) : '',
-      company: pdfClean(raw.company).replace(/^[:：]\s*/, ''), ceo: pdfName(raw.ceo),
-      room: ti.room, item: pdfClean(raw.product),
-      bizNo: biz[0] ? `${biz[1]}-${biz[2]}-${biz[3]}` : pdfClean(raw.bizNo),
-      corpNo: corp[0] ? `${corp[1]}-${corp[2]}` : pdfClean(raw.corpNo),
-      addr: pdfClean(raw.addr), phone: phone[0] ? `${phone[1]}-${phone[2]}-${phone[3]}` : pdfClean(raw.phone),
-      email: mail(raw.emailCeo), emailStaff: mail(raw.emailStaff),
+      company: clean(raw.company).replace(/^[:：]\s*/, ''), ceo: pdfName(fz ? pdfOcrClean(raw.ceo).split(/\s+(?=[A-Za-z0-9(])/)[0] : raw.ceo),
+      room: ti.room, item: clean(fz ? String(raw.product || '').split(/E\s*[-—–_]?\s*MAIL/i)[0].replace(/0\d{1,2}[\s\-—–.)]+\d{3,4}[\s\-—–.]+\d{4}/g, ' ') : raw.product),
+      bizNo: biz[0] ? `${biz[1]}-${biz[2]}-${biz[3]}` : clean(raw.bizNo),
+      corpNo: corp[0] ? `${corp[1]}-${corp[2]}` : clean(raw.corpNo),
+      addr: clean(fz ? String(raw.addr || '').replace(/\s(?:신청기업\s*)?[현형]\s*황[\s\S]*$/, '') : raw.addr), phone: phone[0] ? `${phone[1]}-${phone[2]}-${phone[3]}` : clean(raw.phone),
+      email, emailStaff,
       curPeriod: pdfPeriod(raw.curPeriod), wantPeriod: pdfPeriod(raw.wantPeriod),
       applyDate: sign ? `${sign[1]}-${sign[2].padStart(2, '0')}-${sign[3].padStart(2, '0')}` : '',
       reason,
     };
+    if(fz){
+      // 입주기간 칸 이름을 못 읽은 경우: 신청서 안의 날짜를 차례로(현재 기간 → 희망 기간)
+      const range = s => /^\d{4}\.\d{2}\.\d{2} ~ \d{4}\.\d{2}\.\d{2}$/.test(s || '');
+      if(!range(rec.curPeriod) || !range(rec.wantPeriod)){
+        const ds = pdfDates(body.slice(0, endF ? endF.s : body.length));
+        if(!range(rec.curPeriod) && ds.length >= 2) rec.curPeriod = `${ds[0]} ~ ${ds[1]}`;
+        if(!range(rec.wantPeriod) && ds.length >= 4) rec.wantPeriod = `${ds[2]} ~ ${ds[3]}`;
+      }
+      rec.ocr = true;
+    }
     rec.warn = pdfWarnings(rec);
     recs.push(rec);
   });
@@ -3729,16 +3869,21 @@ function pdfWarnings(r){
   if(!r.track) w.push('입주형태');
   if(r.exam === '승급' && !r.targetTrack) w.push('신청 트랙');
   if(!/^\d{3}-\d{2}-\d{5}$/.test(r.bizNo)) w.push('사업자번호');
-  if(!r.curPeriod) w.push('현재 입주기간');
+  if(!/^\d{4}\.\d{2}\.\d{2} ~ \d{4}\.\d{2}\.\d{2}$/.test(r.curPeriod || '')) w.push('현재 입주기간');
+  if(r.ocr && !/^\d{4}\.\d{2}\.\d{2} ~ \d{4}\.\d{2}\.\d{2}$/.test(r.wantPeriod || '')) w.push('희망 기간');
+  if(r.ocr && !/^[\w.+\-]+@[\w\-]+(\.[\w\-]+)+$/.test(r.email || '')) w.push('이메일');
+  if(r.fromFileName) w.push('기업명(파일 이름으로 채움)');
   return w;
 }
 function pdfScore(recs){ return recs.reduce((s, r) => s + 10 - r.warn.length + (r.item ? 1 : 0) + (r.phone ? 1 : 0) + (r.email ? 1 : 0), 0); }
 const pdfKey = s => String(s || '').replace(/\(주\)|㈜|주식회사|\s|[()]/g, '').toLowerCase();
 
 // 두 가지 읽는 순서로 각각 해석해서 더 잘 읽힌 쪽을 쓰고, 빈 칸은 다른 쪽 값으로 채움
-function parseApplicationsFromPages(pages){
+// 글자 정보가 있는 쪽과 글자 인식(스캔) 쪽은 따로 해석
+function pdfParseGroup(pages, fz){
+  if(!pages.length) return [];
   const join = mode => pages.map(p => pdfItemsToText(p.items, mode)).join('\n\f\n');
-  const a = parseApplicationsText(join('stream')), b = parseApplicationsText(join('yx'));
+  const a = parseApplicationsText(join('stream'), fz), b = parseApplicationsText(join('yx'), fz);
   let base = a, other = b;
   if(b.length > a.length || (b.length === a.length && pdfScore(b) > pdfScore(a))){ base = b; other = a; }
   base.forEach((r, i) => {
@@ -3747,29 +3892,54 @@ function parseApplicationsFromPages(pages){
     Object.keys(r).forEach(k => { if(k !== 'warn' && !r[k] && o[k]) r[k] = o[k]; });
     r.warn = pdfWarnings(r);
   });
-  const blank = pages.filter(p => p.items.map(it => it.str).join('').replace(/\s/g, '').length < 15).map(p => p.no);
-  return { recs: base, blank };
+  return base;
+}
+function parseApplicationsFromPages(pages){
+  const recs = pdfParseGroup(pages.filter(p => !p.ocr), false).concat(pdfParseGroup(pages.filter(p => p.ocr), true));
+  const blank = pages.filter(p => !p.ocr && p.items.map(it => it.str).join('').replace(/\s/g, '').length < 15).map(p => p.no);
+  return { recs, blank, ocrPages: pages.filter(p => p.ocr).map(p => p.no) };
 }
 
+// 스캔 인식으로 기업명을 잘못 읽었을 때: 기업별 파일 이름("4.에이엣_optimize.pdf" → 에이엣)을 기업명으로 씀
+function pdfFileNameHint(recs, fileName){
+  const ocr = recs.filter(r => r.ocr);
+  if(ocr.length !== 1 || recs.length !== 1) return;
+  const hint = String(fileName || '').replace(/\.pdf$/i, '').replace(/^\s*\d+\s*[.)_\-]\s*/, '').split(/[_]/)[0].replace(/(신청서류?|연장|승급|optimize|스캔)$/i, '').trim();
+  if(!/^[가-힣A-Za-z][가-힣A-Za-z0-9&().\s]{1,29}$/.test(hint)) return;
+  const r = ocr[0], k = pdfKey(r.company);
+  if(k && k.includes(pdfKey(hint))) return;
+  r.companyOcr = r.company;
+  r.company = (/주식회사/.test(r.company) ? '주식회사 ' : '') + hint + (/\(\s*주\s*\)|주\)/.test(r.company) && !/주식회사/.test(r.company) ? '(주)' : '');
+  r.fromFileName = true;
+  r.warn = pdfWarnings(r);
+}
 /* ---- 화면: 읽기 → 확인·수정 → 출력/엑셀/등록 ---- */
 let pdfState = { recs: [], files: [], blank: [] };
 async function handlePdfFiles(fileList){
   const files = Array.from(fileList || []).filter(f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
   const log = $id('pdfLog');
   if(!files.length){ log.textContent = 'PDF 파일을 선택하세요.'; return; }
+  const ocrAll = !!($id('pdfOcrAll') && $id('pdfOcrAll').checked);
   pdfState = { recs: [], files: [], blank: [] };
+  let n = 0;
   for(const f of files){
-    log.textContent = `"${f.name}" 읽는 중…`;
+    n++;
+    const head = `(${n}/${files.length}) "${f.name}"`;
+    log.textContent = `${head} 읽는 중…`;
+    ocrLogFn = m => { if(/load|initializ/i.test(m.status || '')) log.textContent = `${head} 글자 인식 준비 중…(처음 한 번은 인식 모델을 내려받아 1분 정도 걸릴 수 있음)`; };
     try{
-      const pages = await pdfExtractPages(f);
+      const pages = await pdfExtractPages(f, { ocrAll, onOcr: (i, tot) => { log.textContent = `${head} 스캔 문서 — ${i}/${tot}쪽 글자 인식 중…(쪽당 10초 안팎)`; } });
       const r = parseApplicationsFromPages(pages);
+      pdfFileNameHint(r.recs, f.name);
       r.recs.forEach(x => { x.file = f.name; x.sel = true; pdfState.recs.push(x); });
-      pdfState.files.push(`${f.name} (${pages.length}쪽 · 신청서 ${r.recs.length}건)`);
-      if(r.blank.length) pdfState.blank.push(`${f.name}: ${r.blank.join(', ')}쪽`);
+      pdfState.files.push(`${f.name} (${pages.length}쪽 · 신청서 ${r.recs.length}건${r.ocrPages.length ? ` · 스캔 문서 글자 인식 ${r.ocrPages.join(', ')}쪽` : ''})`);
+      if(r.blank.length) pdfState.blank.push(`${f.name}: ${r.blank.length > 12 ? r.blank.slice(0, 12).join(', ') + ' … 외 ' + (r.blank.length - 12) + '쪽' : r.blank.join(', ') + '쪽'}`);
     }catch(e){
       pdfState.files.push(`${f.name} — ⚠ ${e.message}`);
     }
   }
+  ocrLogFn = null;
+  await ocrRelease();
   log.textContent = '';
   renderPdfResult();
 }
@@ -3781,6 +3951,8 @@ const PDF_COLS = [
   ['company', '기업명', 9], ['ceo', '대표자', 5], ['room', '호실', 6], ['item', '주 생산품', 9], ['bizNo', '사업자등록번호', 8],
   ['phone', '연락처', 7], ['email', '대표 이메일', 9], ['curPeriod', '현재 입주기간', 10], ['wantPeriod', '희망 입주기간', 10], ['applyDate', '신청일', 6],
 ];
+// 스캔 글자 인식 행은 값이 다 채워져도 확인 필요 표시
+function pdfWarnText(r){ return (r.ocr ? '🔍 스캔 글자 인식 — 원본과 대조 필요' + (r.warn.length ? ' · ' : '') : '') + (r.warn.length ? '확인: ' + r.warn.join(', ') : (r.ocr ? '' : '✅')); }
 function renderPdfResult(){
   const box = $id('pdfResult');
   const R = pdfState.recs;
@@ -3793,7 +3965,7 @@ function renderPdfResult(){
       <td>${sel(i, 'track', ['', '틔움', '키움', '이룸'], r.track)}</td>
       <td>${r.exam === '승급' ? sel(i, 'targetTrack', ['', '키움', '이룸'], r.targetTrack) : '-'}</td>
       ${PDF_COLS.map(([k, , w]) => `<td><input type="text" data-pi="${i}" data-pk="${k}" value="${escapeHtml(r[k] || '')}" style="min-width:${w * 13}px;"></td>`).join('')}
-      <td class="pdf-warn" id="pdfWarn_${i}">${r.warn.length ? '확인: ' + r.warn.join(', ') : '✅'}</td></tr>`).join('');
+      <td class="pdf-warn" id="pdfWarn_${i}">${pdfWarnText(r)}</td></tr>`).join('');
   box.innerHTML = `<div class="toolbar" style="margin-top:10px;"><h3 style="margin:0;">읽은 신청서 ${R.length}건 <span class="muted">(연장 ${nRenew} · 승급 ${nPromo})</span></h3></div>
     <p class="muted" style="margin:4px 0;">${pdfState.files.map(escapeHtml).join('<br>')}</p>
     ${pdfState.blank.length ? `<p class="pdf-warn">⚠ 글자가 없는 쪽(스캔 이미지 등): ${escapeHtml(pdfState.blank.join(' / '))} — 이 쪽에 신청서가 있다면 아래 표에 직접 추가하거나 "① 접수리스트 등록"에서 입력하세요.</p>` : ''}
@@ -3811,6 +3983,7 @@ function renderPdfResult(){
   box.querySelectorAll('[data-pi]').forEach(el => el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', () => {
     const r = pdfState.recs[Number(el.dataset.pi)], k = el.dataset.pk;
     r[k] = el.type === 'checkbox' ? el.checked : el.value.trim();
+    if(k === 'company') r.fromFileName = false;   // 직접 고치면 "파일 이름으로 채움" 표시 없앰
     if(k === 'exam' || k === 'track'){
       if(r.exam === '승급' && !(PROMO_TARGETS[r.track] || []).includes(r.targetTrack)) r.targetTrack = (PROMO_TARGETS[r.track] || [''])[0] || '';
       if(r.exam === '연장') r.targetTrack = '';
@@ -3818,7 +3991,7 @@ function renderPdfResult(){
     }
     r.warn = pdfWarnings(r);
     const w = $id('pdfWarn_' + el.dataset.pi);
-    if(w) w.textContent = r.warn.length ? '확인: ' + r.warn.join(', ') : '✅';
+    if(w) w.textContent = pdfWarnText(r);
   }));
 }
 function pdfAddRow(){
