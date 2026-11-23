@@ -492,6 +492,10 @@
 
     <h3>5. 서명 관리</h3>
     <p class="hint">담당자 서명 이미지를 등록하고 <b>"적용"을 체크</b>하면 연장·승급 평가표 하단 서명란(<b>1차 평가자(담당매니저)·평가위원(담당)·평가위원(총괄)</b>)에 자동으로 들어갑니다(화면·출력 모두). 같은 서명 위치에 여러 명을 체크하면 평가표에 적힌 이름과 같은 사람의 서명이 들어가고, 같은 이름이 없으면 위쪽에 있는 체크한 서명이 들어갑니다. 위원회 위원(2차) 서명란에는 넣지 않습니다. 서명 이미지는 <b>이 PC의 브라우저에만</b> 저장되며 서버로 보내지 않습니다. 흰 종이에 쓴 서명을 찍은 사진·스캔도 흰 바탕을 자동으로 투명하게 바꿉니다.</p>
+    <div class="dropzone" id="sigDropZone" style="margin-bottom:8px;">
+      <p>✍ 서명 이미지 파일을 여기로 끌어다 놓으세요 <span class="muted">(PNG·JPG — 파일 이름이 담당자 이름이면 이름 칸에 자동으로 들어감)</span></p>
+      <div id="sigDropInfo" class="muted"></div>
+    </div>
     <div class="srv-row">
       <input type="text" id="sigName" placeholder="담당자 이름" style="max-width:150px;">
       <select id="sigRole" style="width:auto;"><option value="staff">담당(담당매니저)</option><option value="chief">총괄</option></select>
@@ -2975,13 +2979,55 @@ function sigAddData(name, role, img){
   list.push({ id: 'sg' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, role, img, on });
   if(sigSave(list)) sigRender();
 }
+let sigPendingFile = null;   // 끌어다 놓은 서명 이미지(등록 버튼을 누르기 전)
 async function sigAdd(){
-  const name = $id('sigName').value.trim(), role = $id('sigRole').value, f = $id('sigFile').files[0];
+  const name = $id('sigName').value.trim(), role = $id('sigRole').value, f = sigPendingFile || $id('sigFile').files[0];
   if(!name){ alert('서명할 담당자 이름을 입력하세요.'); $id('sigName').focus(); return; }
-  if(!f){ alert('서명 이미지 파일(PNG·JPG)을 선택하세요.'); return; }
-  try{ sigAddData(name, role, await sigProcessImage(f)); $id('sigName').value = ''; $id('sigFile').value = ''; }
+  if(!f){ alert('서명 이미지 파일(PNG·JPG)을 선택하거나 위 칸에 끌어다 놓으세요.'); return; }
+  try{ sigAddData(name, role, await sigProcessImage(f)); $id('sigName').value = ''; $id('sigFile').value = ''; sigSetPending(null); }
   catch(e){ alert(e.message); }
 }
+// 파일 이름(확장자 제외)이 사람 이름처럼 보이면 이름으로 씀: "박담당.png", "서명_박담당.jpg"
+function sigNameFromFile(fn){
+  const b = String(fn || '').replace(/\.[^.]+$/, '').replace(/^(서명|사인|sign(ature)?)[\s_\-]*/i, '').replace(/[\s_\-]*(서명|사인|sign(ature)?)$/i, '').trim();
+  return /^[가-힣]{2,5}$/.test(b) || /^[A-Za-z][A-Za-z .]{1,29}$/.test(b) ? b : '';
+}
+function sigSetPending(f){
+  sigPendingFile = f;
+  const info = $id('sigDropInfo');
+  if(!info) return;
+  if(!f){ info.innerHTML = ''; return; }
+  const url = URL.createObjectURL(f);
+  info.innerHTML = `준비된 파일: <b>${escapeHtml(f.name)}</b> <img src="${url}" alt="" class="sig-thumb" style="vertical-align:middle;margin-left:6px;"> — 이름·서명 위치를 확인하고 <b>"서명 등록"</b>을 누르세요.`;
+}
+// 끌어다 놓기: 1개면 이름 확인 후 등록, 여러 개면 파일 이름을 이름으로 바로 등록
+async function sigHandleDrop(files){
+  const imgs = Array.from(files || []).filter(f => /^image\//.test(f.type) || /\.(png|jpe?g|gif|webp)$/i.test(f.name));
+  if(!imgs.length){ alert('이미지 파일(PNG·JPG)만 등록할 수 있습니다.'); return; }
+  if(imgs.length === 1){
+    sigSetPending(imgs[0]);
+    const guess = sigNameFromFile(imgs[0].name);
+    if(guess && !$id('sigName').value.trim()) $id('sigName').value = guess;
+    if(!$id('sigName').value.trim()) $id('sigName').focus();
+    return;
+  }
+  const role = $id('sigRole').value, done = [], skip = [];
+  for(const f of imgs){
+    const nm = sigNameFromFile(f.name);
+    if(!nm){ skip.push(f.name); continue; }
+    try{ sigAddData(nm, role, await sigProcessImage(f)); done.push(nm); }catch(e){ skip.push(f.name); }
+  }
+  $id('sigDropInfo').innerHTML = (done.length ? `✅ ${done.length}명 등록: ${escapeHtml(done.join(', '))}` : '')
+    + (skip.length ? ` <span style="color:#b9770e;">⚠ 파일 이름으로 담당자를 알 수 없어 건너뜀: ${escapeHtml(skip.join(', '))} — 한 개씩 끌어다 놓고 이름을 입력하세요.</span>` : '');
+}
+(function(){
+  const dz = $id('sigDropZone');
+  if(!dz) return;
+  ['dragenter','dragover'].forEach(evt => dz.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover'); }));
+  ['dragleave','drop'].forEach(evt => dz.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover'); }));
+  dz.addEventListener('drop', e => sigHandleDrop(e.dataTransfer.files));
+  $id('sigFile').addEventListener('change', e => { if(e.target.files[0]) sigSetPending(null); });
+})();
 function sigUpdate(id, k, v){
   const list = sigList(), s = list.find(x => x.id === id);
   if(!s) return;
