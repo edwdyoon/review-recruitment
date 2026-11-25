@@ -193,8 +193,16 @@
   .s1-promo .s1-crit-off{color:#aaa;}
   .s1-promo input[type=number], .s1-promo input[type=text]{width:100%;max-width:180px;padding:5px 6px;}
   .s1-val{display:inline-flex;align-items:center;gap:4px;}
-  .s1-v{display:inline-flex;align-items:center;gap:4px;margin:0;font-weight:700;cursor:pointer;}
+  .s1-v{display:inline-flex;align-items:center;gap:4px;margin:0;font-weight:700;cursor:pointer;white-space:nowrap;}
   .s1-v input{width:auto;margin:0;}
+  /* 1차 증빙서류 자동 분석 */
+  .s1-ana{border:1px dashed #c9c5f3;border-radius:8px;padding:10px 12px;margin-bottom:14px;background:#fbfaff;}
+  .s1-ana .s1-docs td{padding:3px 6px;font-size:12.5px;}
+  .s1-ana .s1-docs .s1-v{white-space:nowrap;}
+  .s1-ana .s1-docs tr.s1-on td{background:#eef7ee;}
+  .s1-v.s1-ok{color:#1d7a3a;background:#e6f4ea;border-radius:4px;padding:1px 6px;}
+  .s1-okboxes label{display:inline-flex;align-items:center;gap:3px;margin:0 0 0 8px;font-weight:700;}
+  .s1-okboxes input{width:auto;margin:0;}
   .s1-sign{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px 26px;margin-top:12px;font-size:13.5px;align-items:center;}
   .s1-sign input.s1-sig{width:130px;display:inline-block;padding:4px 6px;border:none;border-bottom:1.5px solid #333;border-radius:0;background:#fbfbff;}
   .s1-extra{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;padding-top:10px;border-top:1px dashed #ddd;}
@@ -1915,6 +1923,11 @@ function unconfirmEvaluatorName(){
 document.getElementById('my_evaluator').addEventListener('change', renderMyEvalResults);
 document.getElementById('my_round').addEventListener('change', renderMyEvalResults);
 
+// 현재 분류(연장·승급)에서 담당자가 1차 결과를 전송한 신청자
+function stage1SentInScope(){
+  if(currentExamType === '신규') return [];
+  return DB.applicants.filter(a => !a._srv && applicantExamType(a) === currentExamType && a.stage1 && (a.stage1.evaluator || a.stage1.chief));
+}
 function renderEvaluatorSelect(){
   const sel = document.getElementById('my_evaluator');
   const confirmed = getConfirmedEvaluator();
@@ -1927,7 +1940,9 @@ function renderEvaluatorSelect(){
   sel.disabled = false;
   const cur = sel.value;
   const evalsInScope = DB.evaluations.filter(e=>{ const ap=DB.applicants.find(a=>a.id===e.applicantId); return ap && applicantExamType(ap)===currentExamType; });
-  const names = Array.from(new Set(evalsInScope.map(e=>e.evaluator))).sort((a,b)=>a.localeCompare(b,'ko'));
+  // 연장·승급: 담당자가 "결과 전송"한 1차 서류평가의 평가자도 목록에
+  const s1Names = stage1SentInScope().flatMap(a => [a.stage1.evaluator, a.stage1.chief]).filter(Boolean);
+  const names = Array.from(new Set(evalsInScope.map(e=>e.evaluator).concat(s1Names))).sort((a,b)=>a.localeCompare(b,'ko'));
   sel.innerHTML = '<option value="">위원을 선택하세요</option>' + names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
   if(names.includes(cur)) sel.value = cur;
 }
@@ -1961,9 +1976,24 @@ function renderMyEvalResults(){
     .filter(e=>{ const ap=DB.applicants.find(a=>a.id===e.applicantId); return ap && applicantExamType(ap)===currentExamType; })
     .slice()
     .sort((a,b)=> Number(a.round)-Number(b.round));
-  if(list.length===0){ area.innerHTML = '<p class="empty">해당 위원의 평가 기록이 없습니다.</p>'; return; }
+  // 연장·승급 1차(담당자 결과 전송분): 평가자(담당)·평가위원(총괄) 이름으로
+  const s1List = (!roundFilter || roundFilter === '1') ? stage1SentInScope().filter(a => a.stage1.evaluator === name || a.stage1.chief === name) : [];
+  if(list.length===0 && s1List.length===0){ area.innerHTML = '<p class="empty">해당 위원의 평가 기록이 없습니다.</p>'; return; }
 
   let html = `<div style="overflow-x:auto;"><table><thead><tr><th>트랙</th><th>회차</th><th>기업명</th><th>대표자</th><th>합계(A)</th><th>평가일</th><th>관리</th></tr></thead><tbody>`;
+  s1List.forEach(a => {
+    const ex = applicantExamType(a), t = stage1Total(a), p = promoResult(a);
+    const res = ex === '연장' ? (t ? `${t.total} / 100` : '-') : (p ? `<span class="${p.result === '적합' ? 'final-pass' : 'final-fail'}">${p.result}</span>` : '-');
+    html += `<tr>
+      <td><span class="badge b-${a.track}">${a.track}</span>${ex === '승급' && a.targetTrack ? ' → ' + escapeHtml(a.targetTrack) : ''}</td>
+      <td>1차 <span class="muted">(서류·담당자)</span></td>
+      <td class="left">${escapeHtml(a.company)}</td>
+      <td>${escapeHtml(a.ceo)}</td>
+      <td>${res}${a.stage1.docs && Object.keys(a.stage1.docs).length ? ` <span class="muted" title="증빙서류 자동 분석 후 담당자 확인">📎</span>` : ''}</td>
+      <td>${escapeHtml(a.stage1.date || '-')}</td>
+      <td><button class="secondary small" onclick="rpGoStage1('${a.id}')">수정</button> <button class="secondary small" onclick="printStage1Sheets(['${a.id}'])">출력</button></td>
+    </tr>`;
+  });
   list.forEach(e=>{
     const applicant = DB.applicants.find(a=>a.id===e.applicantId);
     if(!applicant) return;
@@ -2696,7 +2726,7 @@ const PROMO_ROWS = [['age', '업력'], ...PROMO_ITEMS];
 function renderStage1EvalForm(a, area){
   const ex = applicantExamType(a);
   if(a._srv){ area.innerHTML = '<p class="empty">1차 서류평가는 담당자(관리자) 화면에서 입력합니다. 위원은 2차 발표평가만 입력합니다.</p>'; return; }
-  const s = a.stage1 || null, nm = rpStage1Names(ex, s);
+  const s = a.stage1Draft || a.stage1 || null, nm = rpStage1Names(ex, s);
   const space = escapeHtml(rpSpaceName());
   const box = on => on ? '☑' : '☐';
   // 서명 관리에서 체크한 서명 이미지가 있으면 "(서명)" 자리에 미리 보여줌
@@ -2747,7 +2777,7 @@ function renderStage1EvalForm(a, area){
       <table class="score-table s1-table s1-promo"><thead><tr><th style="width:12%;">구분</th><th>평가항목</th><th style="width:24%;">실적 (담당자 확인)</th><th style="width:11%;">확인사항</th></tr></thead>
         <tbody id="s1_promoRows"></tbody></table>
       <table class="score-table s1-table"><tr><td class="left"><b>키움 및 이룸공간 입주를 위한 서류 적합성 평가결과 적합여부</b></td>
-        <td style="width:34%;">자동 판정 : <b id="s1_auto">-</b><br>
+        <td style="width:34%;">자동 판정 : <b id="s1_auto">-</b> <span id="s1_okBoxes" class="s1-okboxes"></span><br>
           <select id="s1_result" style="margin-top:4px;"><option value="">자동 판정 따름</option><option value="적합">여(○) — 적합으로 지정</option><option value="부적합">부(Ⅹ) — 부적합으로 지정</option></select></td></tr></table>
       <p class="footer-note">* 해당 사항에 V 표시 — 실적 칸에 값을 넣으면 신청 트랙 기준을 충족할 때 V가 자동으로 표시되며, 직접 고칠 수도 있습니다. 업력조건을 충족하면 경영실적과 관계없이 적합입니다(추진계획 승급 자격).</p>
       <div class="s1-sign">${dateIn}${sign('평가위원(총괄)', 's1_chief', nm.chief, 'chief')}${sign('평가위원(담당)', 's1_evaluator', nm.evaluator, 'staff')}</div>
@@ -2756,11 +2786,12 @@ function renderStage1EvalForm(a, area){
   }
   html += `<div class="muted" id="s1SigNote" style="margin-top:8px;font-size:12.5px;"></div>
     <div class="srv-row" style="margin-top:10px;">
-      <button type="button" onclick="saveStage1('${a.id}')">1차 평가 저장</button>
-      ${s ? `<button type="button" class="secondary" onclick="printStage1Sheets(['${a.id}'])">🖨 이 평가표 출력</button>` : ''}
-      <span class="muted">1차 결과는 기업별로 하나만 저장됩니다(다시 저장하면 고쳐짐).</span></div>
-    <div class="muted" id="s1FormMsg" style="margin-top:6px;">${s ? `마지막 저장 : ${escapeHtml(String(s.savedAt || '').replace('T', ' ').slice(0, 16))}` : ''}</div>`;
-  area.innerHTML = html;
+      <button type="button" class="secondary" onclick="saveStage1Draft('${a.id}')">임시 저장</button>
+      <button type="button" onclick="saveStage1('${a.id}')">✔ 담당자 확인 완료 · 결과 전송</button>
+      ${a.stage1 ? `<button type="button" class="secondary" onclick="printStage1Sheets(['${a.id}'])">🖨 이 평가표 출력</button>` : ''}
+      <span class="muted">자동 분석은 초안입니다. 담당자가 확인 후 "결과 전송"을 눌러야 1차 결과로 확정되어 ③ 위원별 평가결과·집계에 반영됩니다(다시 전송하면 고쳐짐).</span></div>
+    <div class="muted" id="s1FormMsg" style="margin-top:6px;">${a.stage1Draft ? `📝 임시 저장 ${escapeHtml(String(a.stage1Draft.draftAt || '').replace('T', ' ').slice(0, 16))} — 아직 전송 전입니다.` : (a.stage1 ? `✅ 결과 전송 완료 : ${escapeHtml(String(a.stage1.savedAt || '').replace('T', ' ').slice(0, 16))}` : '')}</div>`;
+  area.innerHTML = `<div id="s1AnaBox" class="s1-ana"></div>` + html;
   // 이름을 고치면 서명 미리보기·적용 안내도 바로 바뀜
   const sigSync = () => {
     const notes = [];
@@ -2775,6 +2806,7 @@ function renderStage1EvalForm(a, area){
   };
   area.querySelectorAll('input[data-sigrole]').forEach(inp => inp.addEventListener('input', sigSync));
   sigSync();
+  s1RenderAna(a);   // 증빙서류 PDF 자동 분석 상자
 
   if(ex === '연장'){
     const def = RENEW_STAGE1[a.track];
@@ -2803,6 +2835,10 @@ function renderStage1EvalForm(a, area){
     $id('s1_auto').innerHTML = r.auto === '적합'
       ? `<span class="final-pass">적합</span> (${promoMetText(r)})` : `<span class="final-fail">부적합</span> (업력·실적 모두 미충족)`;
     if(!opinionTouched) opIn.value = promoOpinion(checks);
+    // 적합여부 체크(여/부): 담당자 지정이 있으면 그것, 없으면 자동 판정
+    const fin = $id('s1_result').value || r.auto;
+    $id('s1_okBoxes').innerHTML = `<label title="자동 판정(또는 담당자 지정)에 따라 표시"><input type="checkbox" onclick="return false" ${fin === '적합' ? 'checked' : ''}> 여(○)</label> <label title="자동 판정(또는 담당자 지정)에 따라 표시"><input type="checkbox" onclick="return false" ${fin === '부적합' ? 'checked' : ''}> 부(Ⅹ)</label>`;
+    s1MarkConfirmed(a);
   };
   const autoCheck = (k, t) => {
     if(k === 'age' || vals[k] === '' || vals[k] == null) return;
@@ -2819,7 +2855,7 @@ function renderStage1EvalForm(a, area){
         ? `<input type="text" id="s1v_age" value="${escapeHtml(v)}" placeholder="예: 창업 2년(2024.03 설립)">`
         : `<span class="s1-val"><input type="number" min="0" step="1" id="s1v_${k}" value="${escapeHtml(v)}"> ${k === 'employ' ? '명' : '원'}</span>`;
       return `<tr><td class="group-title">${label}${k === 'age' ? '<div class="muted s1-hint">(업력조건)</div>' : ''}</td><td class="left">${lines}</td><td>${input}</td>
-        <td><label class="s1-v"><input type="checkbox" id="s1chk_${k}" ${checks[k] ? 'checked' : ''}> V</label></td></tr>`;
+        <td><label class="s1-v"><input type="checkbox" id="s1chk_${k}" ${checks[k] ? 'checked' : ''}> 확인</label></td></tr>`;
     }).join('');
     PROMO_ROWS.forEach(([k]) => {
       $id('s1chk_' + k).addEventListener('change', e => { checks[k] = e.target.checked; autoTxt(); });
@@ -2833,17 +2869,18 @@ function renderStage1EvalForm(a, area){
   };
   $id('s1_target').addEventListener('change', () => draw());
   $id('s1_result').value = (s && s.override) ? (s.result || '') : '';
+  $id('s1_result').addEventListener('change', autoTxt);
   draw(true);
 }
 
-function saveStage1(id){
-  const a = DB.applicants.find(x => x.id === id);
-  if(!a || !$id('s1_evaluator')) return;
+// 평가표 입력 칸 → 1차 결과 객체. strict: 빠진 칸·이름이 있으면 알리고 null(결과 전송용), 아니면 있는 그대로(임시 저장용)
+function collectStage1(a, strict){
   const ex = applicantExamType(a), f = $id('evalFormArea');
   const evaluator = $id('s1_evaluator').value.trim();
   const date = $id('s1_date').value.trim() || todayStr();
   const opinion = $id('s1_opinion').value.trim();
   const savedAt = new Date().toISOString();
+  let o;
   if(ex === '연장'){
     const def = RENEW_STAGE1[a.track];
     const scores = {}, missing = [];
@@ -2851,10 +2888,9 @@ function saveStage1(id){
       const r = f.querySelector(`input[name="s1_${it.key}"]:checked`);
       if(r) scores[it.key] = Number(r.value); else missing.push(it.label);
     });
-    if(missing.length){ alert('선택하지 않은 항목이 있습니다.\n- ' + missing.join('\n- ')); return; }
-    if(!evaluator){ alert('평가표 아래 "1차 평가자(담당매니저)" 칸에 이름을 입력하세요. 서명란에 들어갑니다.'); $id('s1_evaluator').focus(); return; }
-    a.stage1 = { scores, refer: $id('s1_refer').value || '2차 상정', opinion, evaluator, date, savedAt };
-    rpSaveMeta({ evaluator });
+    if(strict && missing.length){ alert('선택하지 않은 항목이 있습니다.\n- ' + missing.join('\n- ')); return null; }
+    if(strict && !evaluator){ alert('평가표 아래 "1차 평가자(담당매니저)" 칸에 이름을 입력하세요. 서명란에 들어갑니다.'); $id('s1_evaluator').focus(); return null; }
+    o = { scores, refer: $id('s1_refer').value || '2차 상정', opinion, evaluator, date, savedAt };
   } else {
     const target = $id('s1_target').value;
     const checks = {}, vals = { age: $id('s1v_age').value.trim() };
@@ -2863,23 +2899,338 @@ function saveStage1(id){
     const auto = promoAuto(checks).auto;
     const override = $id('s1_result').value;
     const chief = $id('s1_chief').value.trim();
-    if(!evaluator){ alert('평가표 아래 "평가위원(담당)" 칸에 이름을 입력하세요. 서명란에 들어갑니다.'); $id('s1_evaluator').focus(); return; }
-    a.stage1 = { target, checks, vals, auto, result: override || auto, override: !!override,
-                 opinion: opinion || promoOpinion(checks), evaluator, chief, date, savedAt };
-    a.targetTrack = target;
-    rpSaveMeta({ evaluator, chief });
+    if(strict && !evaluator){ alert('평가표 아래 "평가위원(담당)" 칸에 이름을 입력하세요. 서명란에 들어갑니다.'); $id('s1_evaluator').focus(); return null; }
+    o = { target, checks, vals, auto, result: override || auto, override: !!override,
+          opinion: opinion || promoOpinion(checks), evaluator, chief, date, savedAt };
   }
+  return Object.assign(o, s1DocsForSave(a));
+}
+// 임시 저장: 1차 결과로 확정하지 않음(집계·위원별 평가결과에 안 들어감)
+function saveStage1Draft(id){
+  const a = DB.applicants.find(x => x.id === id);
+  if(!a || !$id('s1_evaluator')) return;
+  const o = collectStage1(a, false);
+  o.draftAt = o.savedAt;
+  a.stage1Draft = o;
+  saveDB();
+  const msg = $id('s1FormMsg');
+  if(msg) msg.innerHTML = `📝 "${escapeHtml(a.company)}" 1차 평가를 임시 저장했습니다 — 아직 전송 전입니다. 확인이 끝나면 "결과 전송"을 누르세요.`;
+}
+// 결과 전송: 담당자 확인을 마친 1차 결과를 확정 → 1차 현황·③ 위원별 평가결과·집계에 반영
+function saveStage1(id){
+  const a = DB.applicants.find(x => x.id === id);
+  if(!a || !$id('s1_evaluator')) return;
+  const ex = applicantExamType(a);
+  const o = collectStage1(a, true);
+  if(!o) return;
+  o.sentAt = o.savedAt;
+  a.stage1 = o;
+  delete a.stage1Draft;
+  if(ex === '연장') rpSaveMeta({ evaluator: o.evaluator });
+  else { a.targetTrack = o.target; rpSaveMeta({ evaluator: o.evaluator, chief: o.chief }); }
   saveDB();
   renderApplicantTable();   // 1차 현황 목록도 함께 갱신
   renderApplicantOptions();
   renderAgg();
   renderEvalForm();
-  let srv = false; try{ srv = srvOn(); }catch(e){}
-  const note = srv ? ' 위원 화면·서버에 반영하려면 위쪽 "서버 관리 → 2. 접수리스트 배포"를 다시 누르세요.' : '';
+  try{ renderEvaluatorSelect(); renderMyEvalResults(); }catch(e){}
+  let srv = false, admin = false; try{ srv = srvOn(); admin = srvIsAdmin(); }catch(e){}
+  const note = srv ? (admin ? ' 서버(두레이)에도 보관하려면 <button type="button" class="secondary small" onclick="srvPublish()">접수리스트 배포</button>를 누르세요.' : ' 위원 화면·서버에 반영하려면 위쪽 "서버 관리 → 2. 접수리스트 배포"를 다시 누르세요.') : '';
+  const done = `✅ "${escapeHtml(a.company)}" 1차 평가 결과를 전송했습니다 — ③ 위원별 평가결과(${escapeHtml(o.evaluator)})와 집계에 반영되었습니다.`;
   const msg = $id('s1FormMsg');
-  if(msg) msg.innerHTML = `✅ "${escapeHtml(a.company)}" 1차 평가를 저장했습니다.` + note;
+  if(msg) msg.innerHTML = done + note;
   const msg2 = $id('stage1Msg');
-  if(msg2) msg2.innerHTML = `✅ "${escapeHtml(a.company)}" 1차 평가를 저장했습니다.` + note;
+  if(msg2) msg2.innerHTML = done + note;
+}
+
+/* ---- 1차 서류평가: 증빙서류 PDF 자동 분석 (담당자 확인용 초안) ----
+   - 기업이 낸 증빙서류 PDF(한 파일로 합친 것도 가능)를 쪽마다 읽어 서류 종류를 판별 → 필수·해당 서류 제출 여부 체크
+   - 연장: 기업실적 현황표(소정양식) 기재값으로 평가표 배점을 고름(특허·인증 건수, 연체, 투자 횟수, 고용, 매출 성장률)
+   - 승급: 사업자등록증 개업일(업력)·매출액·투자금액·고용 인원을 서류에서 찾아 기준 충족 항목에 "확인"
+   - 결과는 초안: 담당자가 평가표를 확인·수정한 뒤 "결과 전송"을 눌러야 1차 결과로 반영
+   - PDF는 이 브라우저 안에서만 읽음(서버 전송 없음). 저장하는 것은 서류 체크·숫자 값·근거 쪽 번호뿐 */
+const s1Sp = s => s.replace(/\s/g, '').split('').map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s*');
+const s1Rx = (list, extra) => new RegExp(list.map(s1Sp).join('|') + (extra ? '|' + extra : ''), 'i');
+// 판별 순서가 중요: 앞의 것이 먼저(예: 부가가치세 과세표준증명 → 납세증명서보다 먼저)
+const S1_DOCS = [
+  { key:'perf', need:'필수', name:'기업실적 현황표', note:'소정양식', rx: s1Rx(['실적현황표']) },
+  { key:'apply', need:'필수', name:'입주기간 연장(승급)신청서 및 사업계획서', note:'소정양식', rx: s1Rx(['연장신청서', '승급신청서', '(승급)신청서', '연장(승급)신청서', '사업계획서']) },
+  { key:'privacy', need:'필수', name:'개인(신용)정보 수집·이용 제공 동의서', note:'소정양식', rx: /수\s*집\s*\S?\s*이\s*용.{0,12}동\s*의|개\s*인\s*\(?\s*신\s*용\s*\)?\s*정\s*보/ },
+  { key:'bizreg', need:'필수', name:'사업자등록증 사본', note:'1부', rx: s1Rx(['사업자등록증', '사업자등록증명']) },
+  { key:'corpreg', need:'필수', name:'법인등기부등본', note:'법인만', rx: s1Rx(['등기사항전부증명서', '등기사항일부증명서', '법인등기']) },
+  { key:'fin', need:'필수', name:'표준재무제표증명', note:'', rx: s1Rx(['표준재무제표증명', '표준재무상태표', '표준손익계산서', '재무상태표', '손익계산서']) },
+  { key:'vat', need:'필수', name:'부가가치세과세표준증명', note:"'25~'26", rx: s1Rx(['부가가치세과세표준증명', '과세표준증명']) },
+  { key:'wht', need:'필수', name:'원천징수이행상황신고서', note:"'25~'26", rx: s1Rx(['원천징수이행상황신고서']) },
+  { key:'tax', need:'필수', name:'국세·지방세 납부증명서', note:'각 1부', rx: s1Rx(['납세증명서', '완납증명서', '납부증명서', '납부내역증명']) },
+  { key:'patent', need:'해당시', name:'특허권 등록·출원증, 프로그램 등록증 사본 등', note:'', rx: s1Rx(['특허증', '특허등록', '출원사실증명', '출원번호통지서', '실용신안', '프로그램등록증', '디자인등록증', '상표등록증', '저작권등록증']) },
+  { key:'cert', need:'해당시', name:'벤처인증 및 각종 인증, 상장 등', note:'', rx: s1Rx(['벤처기업확인서', '벤처기업확인', '인증서', '인정서', '이노비즈', 'INNO-BIZ', '메인비즈', '기업부설연구소', '연구개발전담부서', '상장'], 'ISO\\s*\\d{4,5}') },
+  { key:'employ', need:'해당시', name:'고용 증빙(공고일 기준) / 4대보험 가입증명원', note:'', rx: s1Rx(['4대사회보험', '4대보험', '가입자명부', '가입증명', '가입내역', '고용보험']) },
+  { key:'invest', need:'해당시', name:'투자유치실적(투자유치확약서 등 증빙)', note:'', rx: s1Rx(['투자확약서', '투자계약서', '투자유치', '투자확인서', '신주인수', '주식인수', '주금납입']) },
+  { key:'etc', need:'해당시', name:'기타 증빙자료(실적 관련)', note:'', rx: s1Rx(['수상', '표창', '수출실적', '납품실적']) },
+];
+const s1Ana = {};   // 신청자 id → 이번 분석 결과(화면용)
+const s1DocsNow = {};   // 신청자 id → 서류 체크 상태(화면에서 고친 값 포함)
+
+// 금액: "120,000,000" · "1억 2천만" · "1.2억" · "12,000천원" · "120백만원"
+function s1Money(v){
+  const s = String(v == null ? '' : v).replace(/[\s원]/g, '');
+  if(!/\d/.test(s)) return null;
+  const U = { 억:1e8, 천만:1e7, 백만:1e6, 만:1e4, 천:1e3 };
+  let total = 0, any = false, m;
+  const rx = /(\d[\d.,]*)(억|천만|백만|만|천)/g;
+  while((m = rx.exec(s))){ total += parseFloat(m[1].replace(/,/g, '')) * U[m[2]]; any = true; }
+  if(any){
+    const rest = s.replace(rx, '').match(/\d[\d,]*/);
+    if(rest) total += parseFloat(rest[0].replace(/,/g, ''));
+    return Math.round(total);
+  }
+  const d = s.match(/-?\d[\d,]*(\.\d+)?/);
+  return d ? Math.round(parseFloat(d[0].replace(/,/g, ''))) : null;
+}
+// 쪽 머리(제목 부분)로 서류 종류 판별. 제목이 없는 쪽은 앞 쪽 서류의 이어지는 쪽
+function s1Classify(pages){
+  let prev = null, prevFile = null;
+  return pages.map(p => {
+    const text = pdfItemsToText(p.items, 'yx');
+    const top = text.replace(/\s+/g, ' ').trim().slice(0, 260);
+    const d = top.replace(/\s/g, '').length < 4 ? null : S1_DOCS.find(x => x.rx.test(top));
+    let type = d ? d.key : null, cont = false;
+    if(!type && prev && prevFile === p.file){ type = prev; cont = true; }
+    if(d){ prev = d.key; prevFile = p.file; }
+    return { file: p.file, no: p.no, type, cont, ocr: !!p.ocr, text, empty: text.replace(/\s/g, '').length < 15 };
+  });
+}
+// 기업실적 현황표 기재값
+function s1ParsePerf(t){
+  const T = String(t || '');
+  const num = rx => { const m = T.match(rx); return m ? Number(m[m.length - 1]) : null; };
+  const after = (a, b) => { const i = T.search(a); if(i < 0) return ''; const r = T.slice(i); const j = r.slice(5).search(b); return j < 0 ? r.slice(0, 400) : r.slice(0, j + 5); };
+  const P = '\\(\\s*(\\d+)\\s*\\)';
+  const v = {
+    patent: num(new RegExp(pdfSp('특허') + '\\s*' + P + '\\s*건')), utility: num(new RegExp(pdfSp('실용신안') + '\\s*' + P + '\\s*건')),
+    cert: num(new RegExp('(?:③\\s*)?' + pdfSp('인증') + '\\s*' + P + '\\s*건')), award: num(new RegExp(pdfSp('수상') + '\\s*' + P + '\\s*건')),
+  };
+  const once = s => { const m = s.match(/\(\s*(\d+)\s*\)\s*회/); return m ? Number(m[1]) : null; };
+  v.overdue = once(after(new RegExp(pdfSp('제규정')), new RegExp(pdfSp('투자실적'))));
+  v.invest = once(after(new RegExp(pdfSp('투자실적')), new RegExp(pdfSp('고용충족') + '|' + pdfSp('신규고용') + '|' + pdfSp('고용창출'))));
+  v.room = num(new RegExp(pdfSp('입주호실') + '\\s*' + P + '\\s*' + pdfSp('인실')));
+  v.empA = num(new RegExp(pdfSp('신청시고용인원') + '\\s*\\(?\\s*A\\s*\\)?\\s*' + P));
+  v.empB = num(new RegExp(pdfSp('현재고용인원') + '\\s*\\(?\\s*B\\s*\\)?\\s*' + P));
+  const nw = T.match(/\(?\s*B\s*[-–−]\s*A\s*\)?\s*\(\s*(-?\d+)\s*\)/); v.empNew = nw ? Number(nw[1]) : null;
+  if(v.empA == null && v.empB == null) v.staff = num(new RegExp(pdfSp('고용인원') + '\\s*' + P + '\\s*명'));
+  const money = rx => { const m = T.match(rx); return m ? s1Money(m[m.length - 1]) : null; };
+  v.salesCur = money(new RegExp('(?:' + pdfSp('당해연도') + '|' + pdfSp('당해년도') + '|' + pdfSp('입주기간평균') + ')\\s*' + pdfSp('매출액') + '\\s*\\(\\s*([^()]*?)\\s*\\)'));
+  v.salesPrev = money(new RegExp(pdfSp('전년도') + '\\s*' + pdfSp('매출액') + '\\s*\\(\\s*([^()]*?)\\s*\\)'));
+  const g = T.match(new RegExp(pdfSp('성장률') + '\\s*\\(\\s*(-?[\\d.]+)\\s*\\)\\s*%')); v.growth = g ? Number(g[1]) : null;
+  return v;
+}
+// 승급용: 서류에서 업력·매출·투자·고용
+function s1FoundDate(t){
+  const T = String(t || '');
+  const m = T.match(new RegExp('(?:' + pdfSp('개업연월일') + '|' + pdfSp('회사성립연월일') + '|' + pdfSp('설립일') + ')\\s*[:：]?\\s*((?:19|20)\\d{2})\\s*[년.\\-/]\\s*(\\d{1,2})\\s*[월.\\-/]\\s*(\\d{1,2})'));
+  return m ? `${m[1]}.${m[2].padStart(2, '0')}.${m[3].padStart(2, '0')}` : '';
+}
+function s1Years(from, to){
+  const a = String(from).match(/(\d{4})\D(\d{2})\D(\d{2})/), b = String(to || todayStr()).match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+  if(!a || !b) return null;
+  return (Date.UTC(+b[1], +b[2] - 1, +b[3]) - Date.UTC(+a[1], +a[2] - 1, +a[3])) / (365.2425 * 864e5);
+}
+function s1Analyze(a, pages){
+  const ex = applicantExamType(a);
+  const cls = s1Classify(pages);
+  const docs = {};
+  S1_DOCS.forEach(d => { docs[d.key] = { n: 0, pages: [] }; });
+  cls.forEach(c => { if(c.type){ docs[c.type].pages.push(`${c.file} ${c.no}쪽${c.cont ? '(이어짐)' : ''}`); if(!c.cont) docs[c.type].n++; } });
+  const textOf = k => cls.filter(c => c.type === k).map(c => c.text).join('\n');
+  const perf = s1ParsePerf(textOf('perf'));
+  const hasPerf = docs.perf.n > 0;
+  const corp = /\d{6}-?\d{7}/.test(String((a.apply || {}).corpNo || '')) || /주식회사|㈜|\(주\)/.test(a.company || '');
+  const res = { exam: ex, docs, perf, hasPerf, corp, notes: [], sugg: {}, why: {},
+    files: Array.from(new Set(cls.map(c => c.file))), pageCount: cls.length, ocrPages: cls.filter(c => c.ocr).length,
+    unknown: cls.filter(c => !c.type && !c.empty).map(c => `${c.file} ${c.no}쪽`), at: new Date().toISOString() };
+  if(ex === '연장'){
+    const def = RENEW_STAGE1[a.track];
+    if(!def) return res;
+    // 특허 및 인증: 현황표 ①~④ 합계, 없으면 증빙 서류 수
+    const pc = ['patent', 'utility', 'cert', 'award'].map(k => perf[k]);
+    let nPat, whyPat;
+    if(pc.some(x => x != null)){ nPat = pc.reduce((s, x) => s + (x || 0), 0); whyPat = `현황표: 특허 ${perf.patent ?? 0} · 실용신안 ${perf.utility ?? 0} · 인증 ${perf.cert ?? 0} · 수상 ${perf.award ?? 0} = ${nPat}건`; }
+    else { nPat = docs.patent.n + docs.cert.n; whyPat = `현황표 기재값 없음 → 증빙 서류 ${nPat}건(특허 ${docs.patent.n} · 인증 ${docs.cert.n})`; }
+    const nEv = docs.patent.n + docs.cert.n + docs.etc.n;   // 수상은 기타 증빙(상장 등)
+    if(pc.some(x => x != null) && nEv < nPat) whyPat += ` · ⚠ 증빙 서류는 ${nEv}건만 찾음`;
+    res.sugg.patent = nPat >= 5 ? 10 : nPat === 4 ? 8 : nPat === 3 ? 6 : nPat === 2 ? 4 : 2; res.why.patent = whyPat;
+    // 제규정 준수: 현황표 연체 횟수(기재 없으면 연체 없음으로 보고 관리비 납부 기록 확인)
+    if(perf.overdue != null){ res.sugg.rules = perf.overdue === 0 ? 10 : perf.overdue === 1 ? 8 : 6; res.why.rules = `현황표: 연체 ${perf.overdue}회`; }
+    else { res.sugg.rules = 10; res.why.rules = '현황표 기재 없음 → 연체 0회로 봄(사용료·관리비 납부 기록으로 확인 필요)'; }
+    // 투자실적
+    let nInv = perf.invest, whyInv = `현황표: 투자 ${perf.invest}회`;
+    if(nInv == null){ nInv = docs.invest.n; whyInv = `현황표 기재 없음 → 투자 증빙 ${nInv}건`; }
+    else if(docs.invest.n < nInv) whyInv += ` · ⚠ 투자 증빙은 ${docs.invest.n}건만 찾음`;
+    res.sugg.invest = nInv >= 3 ? 30 : nInv === 2 ? 25 : nInv === 1 ? 20 : 15; res.why.invest = whyInv;
+    // 고용
+    if(a.track === '키움'){
+      const room = perf.room || Number((String(a.room || '').match(/(\d+)\s*인\s*실/) || [])[1]) || null;
+      const staff = perf.staff != null ? perf.staff : perf.empB;
+      if(room && staff != null){
+        res.sugg.employ = staff > room ? 20 : staff >= room ? 15 : staff >= room * 0.8 ? 10 : 5;
+        res.why.employ = `${room}인실 · 고용 ${staff}명 (${Math.round(staff / room * 100)}%)${perf.room ? '' : ' — 호실은 접수리스트 기준'}`;
+      } else res.why.employ = '현황표에서 입주호실·고용인원을 찾지 못함 — 직접 선택';
+    } else {
+      const nw = perf.empNew != null ? perf.empNew : (perf.empA != null && perf.empB != null ? perf.empB - perf.empA : null);
+      if(nw != null){ res.sugg.employ = nw >= 5 ? 20 : nw === 4 ? 15 : nw === 3 ? 10 : 5; res.why.employ = `신규 고용창출 ${nw}명` + (perf.empA != null ? ` (입주신청시 ${perf.empA}명 → 현재 ${perf.empB ?? '?'}명)` : ''); }
+      else res.why.employ = '현황표에서 고용 인원(A·B)을 찾지 못함 — 직접 선택';
+    }
+    // 매출 성장률
+    let gr = null, whyS = '';
+    if(perf.salesCur != null && perf.salesPrev != null && perf.salesPrev > 0){ gr = (perf.salesCur - perf.salesPrev) / perf.salesPrev * 100; whyS = `현황표: ${a.track === '이룸' ? '입주기간 평균' : '당해연도'} ${fmtWon(perf.salesCur)}원 · ${a.track === '이룸' ? '입주전년도' : '전년도'} ${fmtWon(perf.salesPrev)}원 → ${gr.toFixed(1)}%`; }
+    else if(perf.growth != null){ gr = perf.growth; whyS = `현황표 기재 성장률 ${gr}%`; }
+    if(gr != null){ res.sugg.sales = gr >= 60 ? 30 : gr >= 40 ? 25 : gr >= 20 ? 20 : gr >= 0 ? 15 : 10; res.why.sales = whyS; }
+    else res.why.sales = perf.salesPrev === 0 ? '전년도 매출 0원 → 성장률 계산 불가, 직접 선택' : '현황표에서 매출액을 찾지 못함 — 직접 선택';
+  } else {
+    // 승급: 업력·매출액·투자금액·고용인원
+    const fd = s1FoundDate(textOf('bizreg')) || s1FoundDate(textOf('corpreg'));
+    const base = ($id('s1_date') && $id('s1_date').value) || todayStr();
+    const yrs = fd ? s1Years(fd, base) : null;
+    res.found = fd; res.years = yrs;
+    const sp = perf.salesPrev != null ? perf.salesPrev : (() => { const m = textOf('fin').match(new RegExp(pdfSp('매출액') + '\\s*[:：]?\\s*([\\d,]{4,})')); return m ? s1Money(m[1]) : null; })();
+    res.sales = sp; res.why.sales = sp != null ? (perf.salesPrev != null ? '현황표 전년도 매출액' : '표준재무제표증명 매출액') : '매출액을 찾지 못함';
+    let inv = 0;
+    cls.filter(c => c.type === 'invest').forEach(c => { const ams = (c.text.replace(/\s/g, '').match(/[\d,]{5,}(?=원)/g) || []).map(s1Money).filter(x => x); if(ams.length) inv += Math.max(...ams); });
+    res.invest = docs.invest.n ? inv : null; res.why.invest = docs.invest.n ? `투자 증빙 ${docs.invest.n}건${inv ? '' : ' — 금액을 찾지 못함'}` : '투자 증빙 없음';
+    const et = textOf('employ');
+    const ids = new Set((et.match(/\d{6}\s*[-–]\s*[1-4][*＊xX●•\s]{3,}/g) || []).map(s => s.replace(/\s/g, '')));
+    const cm = et.match(/(?:가입자|피보험자|근로자|인원)\s*수?\s*[:：]?\s*(\d{1,3})\s*명/);
+    let emp = Math.max(ids.size, cm ? Number(cm[1]) : 0);
+    if(!emp && (perf.staff != null || perf.empB != null)) emp = perf.staff != null ? perf.staff : perf.empB;
+    res.employ = emp || (docs.employ.n ? 0 : null);
+    res.why.employ = ids.size ? `4대보험 명부 ${ids.size}명` : (cm ? `가입자 수 ${cm[1]}명` : (emp ? '현황표 고용인원' : '고용 인원을 찾지 못함'));
+  }
+  // 필수 서류 누락
+  res.missing = S1_DOCS.filter(d => d.need === '필수' && !(d.key === 'corpreg' && !corp) && !docs[d.key].n).map(d => d.name);
+  return res;
+}
+// 화면: 분석 상자(서류 체크표 + 평가표 자동 기입 근거)
+function s1RenderAna(a){
+  const box = $id('s1AnaBox');
+  if(!box) return;
+  const ex = applicantExamType(a), r = s1Ana[a.id];
+  const saved = (a.stage1Draft || a.stage1 || {});
+  const st = s1DocsNow[a.id] || (s1DocsNow[a.id] = Object.assign({}, saved.docs || {}));
+  const refs = (r && r.docs) || saved.docRefs || {};
+  const corp = r ? r.corp : (saved.docCorp != null ? saved.docCorp : true);
+  const row = d => {
+    const p = (refs[d.key] && refs[d.key].pages) || [];
+    const na = d.key === 'corpreg' && !corp;
+    return `<tr class="${st[d.key] ? 's1-on' : ''}"><td>${d.need === '필수' ? '<b>필수</b>' : '해당시'}</td><td class="left">${d.name}</td><td class="muted">${na ? '개인사업자 — 해당 없음' : d.note}</td>
+      <td><label class="s1-v"><input type="checkbox" data-doc="${d.key}" ${st[d.key] ? 'checked' : ''}> 제출</label></td>
+      <td class="left muted" style="font-size:11.5px;">${p.length ? escapeHtml(p.slice(0, 4).join(', ') + (p.length > 4 ? ` 외 ${p.length - 4}쪽` : '')) : (r ? '찾지 못함' : '')}</td></tr>`;
+  };
+  const need = S1_DOCS.filter(d => d.need === '필수'), opt = S1_DOCS.filter(d => d.need !== '필수');
+  const miss = need.filter(d => !(d.key === 'corpreg' && !corp) && !st[d.key]).map(d => d.name);
+  let why = '';
+  if(r){
+    if(ex === '연장'){
+      const def = RENEW_STAGE1[a.track];
+      why = def ? `<table class="score-table" style="margin-top:6px;"><thead><tr><th style="width:20%;">평가항목</th><th>근거(서류에서 읽은 값)</th><th style="width:12%;">자동 배점</th></tr></thead><tbody>${def.items.map(it =>
+        `<tr><td class="left">${it.label}</td><td class="left">${escapeHtml(r.why[it.key] || '-')}</td><td>${r.sugg[it.key] != null ? `<b>${r.sugg[it.key]}</b>` : '<span class="final-fail">직접 선택</span>'}</td></tr>`).join('')}</tbody></table>` : '';
+    } else {
+      const t = ($id('s1_target') && $id('s1_target').value) || a.targetTrack || '';
+      why = `<table class="score-table" style="margin-top:6px;"><thead><tr><th style="width:20%;">구분</th><th>근거(서류에서 읽은 값)</th></tr></thead><tbody>
+        <tr><td>업력</td><td class="left">${r.found ? `개업(설립)일 ${r.found} → 창업 ${r.years.toFixed(1)}년 (${escapeHtml(PROMO_AGE[t] || '')})` : '사업자등록증·법인등기에서 개업일을 찾지 못함'}</td></tr>
+        <tr><td>매출액</td><td class="left">${r.sales != null ? fmtWon(r.sales) + '원 · ' : ''}${escapeHtml(r.why.sales)}</td></tr>
+        <tr><td>투자금액</td><td class="left">${r.invest ? fmtWon(r.invest) + '원 · ' : ''}${escapeHtml(r.why.invest)}</td></tr>
+        <tr><td>고용인원</td><td class="left">${r.employ ? r.employ + '명 · ' : ''}${escapeHtml(r.why.employ)}</td></tr></tbody></table>`;
+    }
+  }
+  box.innerHTML = `<div class="s1-ana-head"><b>📎 증빙서류 PDF 자동 분석</b> <span class="muted">— 담당자 확인용 초안입니다. 아래 평가표에 미리 채운 뒤, 확인·수정하고 "결과 전송"을 누르세요.</span></div>
+    <div class="dropzone" id="s1DropZone" style="margin-top:6px;padding:12px;">
+      <p style="margin:0;">📂 이 기업의 신청서류·증빙서류 PDF를 여기로 끌어다 놓으세요 <span class="muted">(한 파일로 합친 것도 가능 · 여러 파일 가능)</span></p>
+      <p class="muted" style="margin:4px 0 0;"><button type="button" class="secondary small" onclick="document.getElementById('s1FileInput').click()">PDF 선택</button> · 스캔(그림) 쪽은 글자 인식으로 읽어 쪽당 10초 안팎 걸립니다. PDF는 이 브라우저 안에서만 읽습니다.</p>
+      <input type="file" id="s1FileInput" accept=".pdf,application/pdf" multiple style="display:none;">
+      <div id="s1AnaLog" class="muted"></div>
+    </div>
+    ${r ? `<p class="muted" style="margin:6px 0 0;">${escapeHtml(r.files.join(', '))} · ${r.pageCount}쪽${r.ocrPages ? ` (스캔 글자 인식 ${r.ocrPages}쪽 — 원본과 대조 필요)` : ''}${r.unknown.length ? ` · 종류를 못 정한 쪽: ${escapeHtml(r.unknown.slice(0, 6).join(', '))}${r.unknown.length > 6 ? ' …' : ''}` : ''}</p>` : ''}
+    <div style="overflow-x:auto;"><table class="score-table s1-docs" style="margin-top:6px;"><thead><tr><th style="width:8%;">구분</th><th>제출서류</th><th style="width:16%;">비고</th><th style="width:9%;">제출 여부</th><th style="width:28%;">근거(파일·쪽)</th></tr></thead>
+      <tbody>${need.map(row).join('')}${opt.map(row).join('')}</tbody></table></div>
+    <p id="s1DocMiss" class="${miss.length ? 'pdf-warn' : 'muted'}" style="margin:4px 0;">${miss.length ? '⚠ 필수 서류 미확인: ' + escapeHtml(miss.join(', ')) : (Object.keys(st).length ? '✅ 필수 서류 모두 확인' : '')}</p>
+    ${why}${r ? `<div class="srv-row" style="margin-top:6px;"><button type="button" class="secondary small" onclick="s1ApplyAna('${a.id}')">↺ 분석 결과를 평가표에 다시 채우기</button></div>` : ''}`;
+  box.querySelectorAll('input[data-doc]').forEach(cb => cb.addEventListener('change', () => { st[cb.dataset.doc] = cb.checked; s1RenderAna(a); }));
+  const dz = $id('s1DropZone');
+  $id('s1FileInput').addEventListener('change', e => { s1HandleFiles(a.id, e.target.files); e.target.value = ''; });
+  ['dragenter','dragover'].forEach(evt => dz.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover'); }));
+  ['dragleave','drop'].forEach(evt => dz.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover'); }));
+  dz.addEventListener('drop', e => s1HandleFiles(a.id, e.dataTransfer.files));
+}
+async function s1HandleFiles(id, fileList){
+  const a = DB.applicants.find(x => x.id === id);
+  const files = Array.from(fileList || []).filter(f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
+  const log = $id('s1AnaLog');
+  if(!a || !files.length){ if(log) log.textContent = 'PDF 파일을 선택하세요.'; return; }
+  const pages = [];
+  let n = 0;
+  for(const f of files){
+    n++;
+    const head = `(${n}/${files.length}) "${f.name}"`;
+    if(log) log.textContent = `${head} 읽는 중…`;
+    ocrLogFn = m => { if(log && /load|initializ/i.test(m.status || '')) log.textContent = `${head} 글자 인식 준비 중…(처음 한 번은 1분 정도 걸릴 수 있음)`; };
+    try{
+      const ps = await pdfExtractPages(f, { ocrAll: true, onOcr: (i, tot) => { if(log) log.textContent = `${head} 스캔 쪽 글자 인식 ${i}/${tot}쪽…(쪽당 10초 안팎)`; } });
+      ps.forEach(p => { p.file = f.name; pages.push(p); });
+    }catch(e){ if(log) log.textContent = `${f.name} — ⚠ ${e.message}`; }
+  }
+  ocrLogFn = null;
+  await ocrRelease();
+  s1AnalyzeApply(a, pages);
+}
+function s1AnalyzeApply(a, pages){   // 시험에서도 바로 부름
+  const r = s1Analyze(a, pages);
+  s1Ana[a.id] = r;
+  const st = s1DocsNow[a.id] = {};
+  S1_DOCS.forEach(d => { st[d.key] = r.docs[d.key].n > 0; });
+  s1RenderAna(a);
+  s1ApplyAna(a.id);
+  return r;
+}
+// 분석 결과를 평가표 입력 칸에 채움(저장은 안 함 — 담당자가 확인 후 저장·전송)
+function s1ApplyAna(id){
+  const a = DB.applicants.find(x => x.id === id), r = s1Ana[id];
+  const area = $id('evalFormArea');
+  if(!a || !r || !area) return;
+  const fire = (el, ev) => el && el.dispatchEvent(new Event(ev));
+  if(r.exam === '연장'){
+    Object.keys(r.sugg).forEach(k => {
+      const el = area.querySelector(`input[name="s1_${k}"][value="${r.sugg[k]}"]`);
+      if(el){ el.checked = true; fire(el, 'change'); }
+    });
+    if(r.missing.length && $id('s1_opinion') && !$id('s1_opinion').value.trim()) $id('s1_opinion').value = '필수서류 미제출: ' + r.missing.join(', ');
+  } else {
+    const t = $id('s1_target').value;
+    const setV = (k, v) => { const el = $id('s1v_' + k); if(el && v != null){ el.value = v; fire(el, 'input'); } };
+    if(r.found){
+      const y = r.years, ok = t === '키움' ? (y >= 1 && y <= 3) : (y >= 3 && y <= 7);
+      setV('age', `창업 ${Math.floor(y)}년 ${Math.floor((y % 1) * 12)}개월(${r.found} 개업)`);
+      const c = $id('s1chk_age'); if(c){ c.checked = ok; fire(c, 'change'); }
+    }
+    setV('sales', r.sales); setV('invest', r.invest || null); setV('employ', r.employ || null);
+  }
+  s1MarkConfirmed(a);
+  const m = $id('s1FormMsg');
+  if(m) m.innerHTML = `📎 서류 분석 결과를 평가표에 채웠습니다(아직 저장 전). 내용을 확인·수정한 뒤 <b>"✔ 담당자 확인 완료 · 결과 전송"</b>을 누르세요.`;
+}
+// 승급: 충족한 항목의 확인사항 칸에 "확인" 표시(서류 근거)
+function s1MarkConfirmed(a){
+  if(applicantExamType(a) !== '승급') return;
+  PROMO_ROWS.forEach(([k]) => {
+    const c = $id('s1chk_' + k), lab = c && c.closest('label');
+    if(!lab) return;
+    lab.classList.toggle('s1-ok', c.checked);
+  });
+}
+function s1DocsForSave(a){
+  const r = s1Ana[a.id], saved = a.stage1Draft || a.stage1 || {};
+  const docs = Object.assign({}, s1DocsNow[a.id] || saved.docs || {});
+  const refs = r ? Object.fromEntries(Object.entries(r.docs).filter(([, v]) => v.pages.length).map(([k, v]) => [k, { pages: v.pages.slice(0, 12) }])) : (saved.docRefs || {});
+  return { docs, docRefs: refs, docCorp: r ? r.corp : saved.docCorp, docAt: r ? r.at : saved.docAt };
 }
 
 /* ---- 출력(공식 서식) ---- */
@@ -3470,7 +3821,7 @@ function rpApplyExamUI(){
   $id('f_targetRow').style.display = ex === '승급' ? '' : 'none';
   document.querySelectorAll('#intakeForm .penalty-box').forEach(el => el.style.display = rp ? 'none' : '');
   if(!rp) rpSetOptions('ev_round', null);   // 연장·승급의 평가 회차는 rpApplyVisibility에서(관리자만 1차)
-  rpSetOptions('my_round', rp ? [['', '전체'], ['2', '2차 발표평가']] : null);
+  rpSetOptions('my_round', rp ? [['', '전체'], ['1', '1차 서류평가(담당자)'], ['2', '2차 발표평가']] : null);
   rpSetOptions('agg_round', rp ? [['final', '최종 집계(1차+2차)'], ['1', '1차 집계표'], ['2', '2차 집계표']] : null);
   $id('aggRoundLabel').textContent = rp ? '집계 보기' : '평가 회차';
   $id('aggQuotaWrap').style.display = ex === '연장' ? 'none' : '';
