@@ -519,10 +519,10 @@
     <div id="stage1List"></div>
   </div>
 
-  <!-- ============ 연장·승급 신청서 PDF → 접수리스트 (관리자) ============ -->
+  <!-- ============ 신청서 PDF → 접수리스트 (관리자) — 신규: 입주신청서(제2호 서식), 연장·승급: 연장(승급)신청서(서식 제9호) ============ -->
   <div class="card" id="pdfIntakePanel" style="display:none;">
     <h2>📄 신청서 PDF로 접수리스트 만들기 (관리자)</h2>
-    <p class="hint">기업들이 낸 <b>연장·승급 신청서 PDF</b>(여러 기업을 합친 파일도 가능)를 넣으면 신청서 내용을 읽어 접수리스트로 정리합니다. 내용을 확인·수정한 뒤 <b>접수리스트 출력</b>, <b>엑셀 다운로드</b>, <b>앱 접수리스트에 등록</b>을 할 수 있습니다. PDF는 이 브라우저 안에서만 읽으며 서버로 보내지 않습니다.</p>
+    <p class="hint">기업들이 낸 <b id="pdfIntakeKind">연장·승급 신청서 PDF</b>(여러 기업을 합친 파일도 가능)를 넣으면 신청서 내용을 읽어 접수리스트로 정리합니다. 내용을 확인·수정한 뒤 <b>접수리스트 출력</b>, <b>엑셀 다운로드</b>, <b>앱 접수리스트에 등록</b>을 할 수 있습니다. PDF는 이 브라우저 안에서만 읽으며 서버로 보내지 않습니다.</p>
     <div class="dropzone" id="pdfDropZone">
       <p>📂 신청서 PDF 파일을 여기로 끌어다 놓으세요</p>
       <p class="muted">또는 <button type="button" class="secondary small" onclick="document.getElementById('pdfFileInput').click()">PDF 선택</button> · 한글(HWP)에서 PDF로 저장한 신청서는 바로 읽고, 스캔(그림) PDF는 글자 인식으로 읽음(내용 확인 필요)</p>
@@ -3449,7 +3449,9 @@ function rpApplyVisibility(){
   try{ srv = srvOn(); admin = srvIsAdmin(); }catch(e){}
   const rp = currentExamType !== '신규';
   $id('stage1Panel').style.display = (rp && (!srv || admin)) ? '' : 'none';
-  $id('pdfIntakePanel').style.display = (rp && (!srv || admin)) ? '' : 'none';
+  $id("pdfIntakePanel").style.display = (!srv || admin) ? "" : "none";   // 신규·연장·승급 모두(관리자만)
+  $id("pdfIntakeKind").textContent = rp ? "연장·승급 신청서 PDF" : "신규 입주신청서 PDF(제출서류 전체를 한 파일로 낸 것도 가능)";
+  try{ renderPdfResult(); }catch(e){}
   if(!rp) return;
   const before = $id('ev_round').value;
   rpSetOptions('ev_round', rpStage1Allowed() ? [['1', '1차 서류평가(담당자)'], ['2', '2차 발표평가(위원회)']] : [['2', '2차 발표평가(위원회)']]);
@@ -3641,7 +3643,7 @@ async function pdfExtractPages(file, opts){
   const buf = await file.arrayBuffer();
   const doc = await lib.getDocument({ data: new Uint8Array(buf), cMapUrl: PDFJS_BASE + 'cmaps/', cMapPacked: true, standardFontDataUrl: PDFJS_BASE + 'standard_fonts/' }).promise;
   const pages = [];
-  let scannedSeen = 0;
+  let scannedSeen = 0, found = false;
   for(let i = 1; i <= doc.numPages; i++){
     const page = await doc.getPage(i);
     const tc = await page.getTextContent();
@@ -3650,10 +3652,13 @@ async function pdfExtractPages(file, opts){
     const pg = { no: i, items };
     if(items.map(it => it.str).join('').replace(/\s/g, '').length < 15){
       pg.scanned = true;
-      if(opts.ocrAll || scannedSeen === 0){
+      // opts.ocrUntil: 신청서 쪽을 찾을 때까지 앞에서부터 인식(최대 opts.ocrMax쪽) — 신규는 체크리스트 다음 쪽에 신청서가 있음
+      const want = opts.ocrAll || (opts.ocrUntil ? (!found && scannedSeen < (opts.ocrMax || 6)) : scannedSeen === 0);
+      if(want){
         if(opts.onOcr) opts.onOcr(i, doc.numPages);
         pg.items = await ocrPage(page);
         pg.ocr = true;
+        if(opts.ocrUntil && opts.ocrUntil(pg.items)) found = true;
       }
       scannedSeen++;
     }
@@ -3913,14 +3918,195 @@ function pdfFileNameHint(recs, fileName){
   r.fromFileName = true;
   r.warn = pdfWarnings(r);
 }
+/* ---- 신규 입주신청서(【제2호 서식】 창업혁신공간 입주신청서) → 신규 접수리스트 ----
+   - 칸: 창업아이템명·창업구분·창업(예정)일·분야구분·입주유형(1인석~13평형 체크)·신청자(성명·이메일·연락처)·기업(기업명·대표자명·번호·주소)·가점 체크
+   - 체크한 칸은 □ 대신 ■·☑·V 등으로 바뀐 표시로 판단(글자 인식 결과는 체크 표시를 못 읽을 수 있어 확인 표시)
+   - 생년월일·성별·자택 주소는 읽지 않음(개인정보, 접수리스트에 필요 없음) */
+const NEW_MARK = /[■☑▣✔✓√●◼◆▶vVＶ◉◎ⓥ]/;
+const NEW_ROOMS = [['1인석', '틔움'], ['2인석', '틔움'], ['3인실', '키움'], ['4인실', '키움'], ['7평형', '이룸'], ['8평형', '이룸'], ['9평형', '이룸'], ['13평형', '이룸']];
+const NEW_FIELDS = ['반도체', '바이오', '미래차', '데이터', '네트워크', '인공지능', '혁신', '제조', '지식서비스'];
+const NEW_BONUS_OPTS = [['women_disabled', '여성기업'], ['ip', '지재권'], ['award', '대외수상'], ['package', '창업진흥원'], ['incubator', '경기도내']];
+const NEW_BONUS_TEXT = { women_disabled:'여성·장애인기업', ip:'지재권/인증', award:'대외수상', package:'창업패키지', incubator:'도내 보육센터·창업혁신공간' };
+function newLabels(fz){
+  const F = s => pdfFz(s, fz);
+  return [
+    ['item', new RegExp(F('창업아이템명'))],
+    ['startType', new RegExp(F('창업구분'))],
+    ['startDate', new RegExp(pdfSp('창업') + '\\s*\\(?\\s*' + pdfSp('예정') + '\\s*\\)?\\s*' + pdfSp('일'))],
+    ['type', new RegExp(F('입주유형'))],
+    ['name', new RegExp(pdfSp('성명'))],
+    ['birth', new RegExp(F('생년월일'))],
+    ['email', new RegExp(pdfSp('이메일') + '|' + PDF_MAIL, 'i')],
+    ['mobile', new RegExp(pdfSp('연락처'))],
+    ['home', new RegExp(F('자택주소'))],
+    ['company', new RegExp(pdfSp('기업명'))],
+    ['ceo', new RegExp(F('대표자명'))],
+    ['corpNo', new RegExp(F('법인등록번호'))],
+    ['bizNo', new RegExp(F('사업자등록번호'))],
+    ['product', new RegExp(F('주생산품'))],
+    ['tel', new RegExp(F('전화번호'))],
+    ['addr', new RegExp(F('본사주소'))],
+    ['factory', new RegExp(F('공장주소'))],
+    ['end', new RegExp('(' + F('허위사실') + '|' + F('확약하며') + '|' + F('입주신청서를제출') + ')')],
+  ];
+}
+const NEW_LABELS = newLabels(false), NEW_LABELS_FZ = newLabels(true);
+// 체크 표시: 선택지 바로 앞(빈칸·괄호·ⓐ 같은 번호 건너뜀)의 글자가 체크 표시면 선택한 것
+function newMarked(region, label){
+  const rx = new RegExp(pdfSp(label), 'g');
+  let m;
+  while((m = rx.exec(region))){
+    let j = m.index - 1;
+    while(j >= 0 && /[\s(（ⓐ-ⓩ]/.test(region[j])) j--;
+    if(j < 0) continue;
+    if(NEW_MARK.test(region[j]) || (region[j] === '□' && j > 0 && NEW_MARK.test(region[j - 1]))) return true;
+  }
+  return false;
+}
+// 칸 값 정리: 표 왼쪽 머리칸("신청자 현황", "기업 현황")이 끼어 읽힌 것 제거
+function newClean(v, fz){
+  const s = String(v || '').replace(/(^|\s)(신청자|기업)?\s*현\s*황(?=\s|$)/g, ' ').replace(/(^|\s)(신청자|기업)(?=\s*$)/g, ' ').replace(/^\s*\(\s*공고일\s*기준\s*\)/, '');
+  return fz ? pdfOcrClean(s) : pdfClean(s);
+}
+function parseNewApplicationsText(text, fz){
+  const L = fz ? NEW_LABELS_FZ : NEW_LABELS, ITEM = L[0][1];
+  const anchors = [];
+  const rx = new RegExp(ITEM.source, 'g');
+  let m;
+  while((m = rx.exec(text))){
+    const near = text.slice(m.index, m.index + 1500);
+    // 신청서 칸들이 이어져야 신청서(사업계획서 안의 "창업아이템명"은 건너뜀)
+    const hits = ['type', 'company', 'ceo', 'bizNo', 'name'].filter(k => L.find(x => x[0] === k)[1].test(near)).length;
+    if(hits < 3) continue;
+    if(anchors.length && m.index - anchors[anchors.length - 1].s < 1200) continue;
+    anchors.push({ s: m.index, e: m.index + m[0].length });
+  }
+  const flat = s => String(s || '').replace(/[—–]/g, '-').replace(/\s/g, '');
+  const MAIL_RX = /[\w.+\-]+@[\w\-]+(\.[\w\-]+)+/g;
+  const clean = v => newClean(v, fz);
+  return anchors.map((an, i) => {
+    const limit = i + 1 < anchors.length ? anchors[i + 1].s : Math.min(text.length, an.e + 4000);
+    const body = text.slice(an.e, limit);
+    const found = [];
+    let pos = 0;
+    L.slice(1).forEach(([k, r]) => {
+      const mm = body.slice(pos).match(r);
+      if(mm){ found.push({ k, s: pos + mm.index, e: pos + mm.index + mm[0].length }); pos = pos + mm.index + mm[0].length; }
+    });
+    const raw = { item: body.slice(0, found.length ? found[0].s : 200) };
+    found.forEach((f, j) => { if(f.k !== 'end') raw[f.k] = body.slice(f.e, j + 1 < found.length ? found[j + 1].s : Math.min(body.length, f.e + 300)); });
+    const at = k => { const f = found.find(x => x.k === k); return f ? f.s : -1; };
+    const endS = at('end') >= 0 ? at('end') : body.length;
+    const nameS = at('name') >= 0 ? at('name') : Math.min(body.length, 1500);
+    const head = body.slice(0, nameS);   // 창업구분·분야·입주유형 체크 칸이 있는 부분
+    const pick = NEW_ROOMS.filter(([r]) => newMarked(head, r));
+    let track = pick.length ? pick[0][1] : '', room = pick.length ? pick[0][0] : '';
+    if(!track){
+      const t = [['초기', '틔움'], ['도약', '키움'], ['성장', '이룸']].find(([w]) => newMarked(head, w));
+      if(t) track = t[1];
+    }
+    const pre = newMarked(head, '예비창업자'), biz0 = newMarked(head, '창업기업');
+    const field = NEW_FIELDS.filter(f => newMarked(head, f)).map(f => f === '혁신' ? '혁신·신산업' : f).join(', ');
+    const bonusRegion = body.slice(at('factory') >= 0 ? at('factory') : 0, endS);
+    const bonusKeys = NEW_BONUS_OPTS.filter(([, w]) => newMarked(bonusRegion, w)).map(([k]) => k);
+    let biz = (flat(raw.bizNo).match(/(\d{3})-?(\d{2})-?(\d{5})/) || []);
+    if(!biz[0] && fz) biz = (flat(body.slice(0, endS)).match(/(\d{3})-(\d{2})-(\d{5})/) || []);
+    const corp = (flat(raw.corpNo).match(/(\d{6})-?(\d{7})/) || []);
+    const phoneOf = v => { const p = String(v || '').replace(/[—–]/g, '-').match(/(0\d{1,2})[\s\-.)]*(\d{3,4})[\s\-.]*(\d{4})/); return p ? `${p[1]}-${p[2]}-${p[3]}` : ''; };
+    const mobile = phoneOf(raw.mobile), tel = phoneOf(raw.tel);
+    const mail = v => (String(v || '').replace(/\s*@\s*/g, '@').replace(/@(\S+)\s+\.\s*/g, '@$1.').match(MAIL_RX) || [''])[0];
+    let email = mail(String(raw.email || '').replace(/\s+/g, ''));
+    if(!email) email = mail(body.slice(0, endS));
+    const sign = body.slice(endS, endS + 400).match(/(20\d{2})\s*년\s*(\d{1,2})\s*월?\s*\D{0,3}\s*(\d{1,2})\s*일/);
+    const sd = pdfDates(raw.startDate)[0] || '';
+    const name = pdfName(fz ? pdfOcrClean(raw.name).split(/\s+(?=[A-Za-z0-9(])/)[0] : clean(raw.name));
+    let ceo = pdfName(fz ? pdfOcrClean(raw.ceo).split(/\s+(?=[A-Za-z0-9(])/)[0] : clean(raw.ceo));
+    let company = clean(raw.company).replace(/^[:：]\s*/, '');
+    const rec = {
+      exam: '신규', no: '', track, room, item: clean(raw.item).replace(/^명\s*/, ''),
+      startType: pre ? '예비창업자' : (biz0 ? '창업기업' : ''), startDate: sd, field,
+      company, ceo: ceo || name, applicant: name,
+      bizNo: biz[0] ? `${biz[1]}-${biz[2]}-${biz[3]}` : clean(raw.bizNo), corpNo: corp[0] ? `${corp[1]}-${corp[2]}` : clean(raw.corpNo),
+      product: clean(raw.product), addr: clean(raw.addr), tel,
+      phone: mobile || tel, email,
+      bonusKeys, bonusText: bonusKeys.map(k => NEW_BONUS_TEXT[k]).join(', '),
+      applyDate: sign ? `${sign[1]}-${sign[2].padStart(2, '0')}-${sign[3].padStart(2, '0')}` : '',
+    };
+    // 예비창업자는 기업명이 없으므로 신청자 성명으로
+    if(!rec.company && rec.startType === '예비창업자' && name){ rec.company = name; rec.companyFromName = true; }
+    if(fz) rec.ocr = true;
+    rec.warn = newWarnings(rec);
+    return rec;
+  });
+}
+function newWarnings(r){
+  const w = [];
+  if(!r.company) w.push('기업명');
+  if(!r.ceo) w.push('대표자');
+  if(!r.track) w.push('트랙(입주유형 체크)');
+  if(!r.room) w.push('신청공간');
+  if(!r.item) w.push('창업아이템');
+  if(!/^0\d{1,2}-\d{3,4}-\d{4}$/.test(r.phone || '')) w.push('연락처');
+  if(!/^[\w.+\-]+@[\w\-]+(\.[\w\-]+)+$/.test(r.email || '')) w.push('이메일');
+  if(r.startType !== '예비창업자' && r.company && !/^\d{3}-\d{2}-\d{5}$/.test(r.bizNo || '')) w.push('사업자번호');
+  if(r.companyFromName) w.push('기업명(예비창업자 — 성명으로 채움)');
+  if(r.fromFileName) w.push('기업명(파일 이름으로 채움)');
+  return w;
+}
+function newScore(recs){ return recs.reduce((s, r) => s + 12 - r.warn.length + (r.addr ? 1 : 0) + (r.bonusKeys.length ? 1 : 0) + (r.startType ? 1 : 0), 0); }
+function newParseGroup(pages, fz){
+  if(!pages.length) return [];
+  const join = mode => pages.map(p => pdfItemsToText(p.items, mode)).join('\n\f\n');
+  const a = parseNewApplicationsText(join('stream'), fz), b = parseNewApplicationsText(join('yx'), fz);
+  let base = a, other = b;
+  if(b.length > a.length || (b.length === a.length && newScore(b) > newScore(a))){ base = b; other = a; }
+  base.forEach((r, i) => {
+    const o = other.find(x => pdfKey(x.company) && pdfKey(x.company) === pdfKey(r.company)) || (other.length === base.length ? other[i] : null);
+    if(!o) return;
+    Object.keys(r).forEach(k => {
+      if(k === 'warn') return;
+      if(k === 'bonusKeys'){ if(!r.bonusKeys.length && o.bonusKeys.length){ r.bonusKeys = o.bonusKeys; r.bonusText = o.bonusText; } return; }
+      if(!r[k] && o[k]){ r[k] = o[k]; if(k === 'track' && o.room) r.room = o.room; }
+    });
+    r.warn = newWarnings(r);
+  });
+  return base;
+}
+function parseNewApplicationsFromPages(pages){
+  const recs = newParseGroup(pages.filter(p => !p.ocr), false).concat(newParseGroup(pages.filter(p => p.ocr), true));
+  const blank = pages.filter(p => !p.ocr && p.items.map(it => it.str).join('').replace(/\s/g, '').length < 15).map(p => p.no);
+  return { recs, blank, ocrPages: pages.filter(p => p.ocr).map(p => p.no) };
+}
+// 글자 인식한 쪽이 신규 신청서인지(여기까지 인식하고 멈춤)
+function newIsFormPage(items){
+  const t = pdfItemsToText(items, 'yx');
+  return NEW_LABELS_FZ[0][1].test(t) && [3, 9, 12].filter(i => NEW_LABELS_FZ[i][1].test(t)).length >= 2;
+}
+// 파일 이름 앞의 접수번호("22531_가나테크.pdf") → 접수번호, 글자 인식으로 기업명이 틀리면 파일 이름의 기업명
+function newFileNameHint(recs, fileName){
+  if(recs.length !== 1) return;
+  const base = String(fileName || '').replace(/\.pdf$/i, '');
+  const r = recs[0];
+  const no = base.match(/^\s*(\d{4,})(?=[\s_.\-)])/);
+  if(no && !r.no) r.no = no[1];
+  if(r.ocr){
+    const hint = base.replace(/^\s*\d+\s*[.)_\-]\s*/, '').split(/[_]/)[0].replace(/(입주신청서|신청서류?|신규|optimize|스캔)$/i, '').trim();
+    if(/^[가-힣A-Za-z][가-힣A-Za-z0-9&().\s]{1,29}$/.test(hint) && !(pdfKey(r.company) && pdfKey(r.company).includes(pdfKey(hint)))){
+      r.companyOcr = r.company; r.company = hint; r.fromFileName = true; r.warn = newWarnings(r);
+    }
+  }
+}
+
 /* ---- 화면: 읽기 → 확인·수정 → 출력/엑셀/등록 ---- */
 let pdfState = { recs: [], files: [], blank: [] };
+const pdfNewMode = () => currentExamType === '신규';
 async function handlePdfFiles(fileList){
   const files = Array.from(fileList || []).filter(f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
   const log = $id('pdfLog');
   if(!files.length){ log.textContent = 'PDF 파일을 선택하세요.'; return; }
   const ocrAll = !!($id('pdfOcrAll') && $id('pdfOcrAll').checked);
-  pdfState = { recs: [], files: [], blank: [] };
+  const isNew = pdfNewMode();
+  pdfState = { recs: [], files: [], blank: [], mode: isNew ? '신규' : 'rp' };
   let n = 0;
   for(const f of files){
     n++;
@@ -3928,9 +4114,11 @@ async function handlePdfFiles(fileList){
     log.textContent = `${head} 읽는 중…`;
     ocrLogFn = m => { if(/load|initializ/i.test(m.status || '')) log.textContent = `${head} 글자 인식 준비 중…(처음 한 번은 인식 모델을 내려받아 1분 정도 걸릴 수 있음)`; };
     try{
-      const pages = await pdfExtractPages(f, { ocrAll, onOcr: (i, tot) => { log.textContent = `${head} 스캔 문서 — ${i}/${tot}쪽 글자 인식 중…(쪽당 10초 안팎)`; } });
-      const r = parseApplicationsFromPages(pages);
-      pdfFileNameHint(r.recs, f.name);
+      // 신규: 신청서(제2호 서식)가 체크리스트 뒤에 있어서, 스캔 문서는 신청서 쪽을 찾을 때까지 앞에서부터 인식
+      const pages = await pdfExtractPages(f, Object.assign({ ocrAll, onOcr: (i, tot) => { log.textContent = `${head} 스캔 문서 — ${i}/${tot}쪽 글자 인식 중…(쪽당 10초 안팎)`; } },
+        isNew ? { ocrUntil: newIsFormPage, ocrMax: 6 } : {}));
+      const r = isNew ? parseNewApplicationsFromPages(pages) : parseApplicationsFromPages(pages);
+      if(isNew) newFileNameHint(r.recs, f.name); else pdfFileNameHint(r.recs, f.name);
       r.recs.forEach(x => { x.file = f.name; x.sel = true; pdfState.recs.push(x); });
       pdfState.files.push(`${f.name} (${pages.length}쪽 · 신청서 ${r.recs.length}건${r.ocrPages.length ? ` · 스캔 문서 글자 인식 ${r.ocrPages.join(', ')}쪽` : ''})`);
       if(r.blank.length) pdfState.blank.push(`${f.name}: ${r.blank.length > 12 ? r.blank.slice(0, 12).join(', ') + ' … 외 ' + (r.blank.length - 12) + '쪽' : r.blank.join(', ') + '쪽'}`);
@@ -3944,8 +4132,108 @@ async function handlePdfFiles(fileList){
   renderPdfResult();
 }
 function pdfApplyRecs(recs){   // 시험용: 읽은 결과를 바로 화면에
-  pdfState = { recs: recs.map(r => Object.assign({ sel: true }, r)), files: ['(직접 입력)'], blank: [] };
+  pdfState = { recs: recs.map(r => Object.assign({ sel: true }, r)), files: ['(직접 입력)'], blank: [], mode: pdfNewMode() ? '신규' : 'rp' };
   renderPdfResult();
+}
+
+/* ---- 신규: 결과 표·출력·엑셀·등록 ---- */
+const NEW_PDF_COLS = [
+  ['no', '접수번호', 5], ['room', '신청공간', 5], ['company', '기업명', 9], ['ceo', '대표자', 5], ['item', '창업아이템명', 12],
+  ['phone', '연락처', 7], ['email', '이메일', 10], ['startType', '창업구분', 6], ['bizNo', '사업자등록번호', 8], ['bonusText', '가점 체크(신청서)', 10], ['applyDate', '신청일', 6],
+];
+function newPdfWarnText(r){ return (r.ocr ? '🔍 스캔 글자 인식 — 원본과 대조 필요' + (r.warn.length ? ' · ' : '') : '') + (r.warn.length ? '확인: ' + r.warn.join(', ') : (r.ocr ? '' : '✅')); }
+function renderNewPdfResult(box){
+  const R = pdfState.recs;
+  const cnt = t => R.filter(r => r.track === t).length;
+  const rows = R.map((r, i) => `<tr>
+      <td><input type="checkbox" data-pi="${i}" data-pk="sel" ${r.sel ? 'checked' : ''} style="width:auto;"></td><td>${i + 1}</td>
+      <td><select data-pi="${i}" data-pk="track">${['', '틔움', '키움', '이룸'].map(o => `<option value="${o}" ${o === (r.track || '') ? 'selected' : ''}>${o || '-'}</option>`).join('')}</select></td>
+      ${NEW_PDF_COLS.map(([k, , w]) => `<td><input type="text" data-pi="${i}" data-pk="${k}" value="${escapeHtml(r[k] || '')}" style="min-width:${w * 13}px;"${k === 'bonusText' ? ' readonly title="신청서에서 체크한 가점 — 등록 후 접수리스트의 \'수정\'에서 증빙 확인 후 조정"' : ''}></td>`).join('')}
+      <td class="pdf-warn" id="pdfWarn_${i}">${newPdfWarnText(r)}</td></tr>`).join('');
+  box.innerHTML = `<div class="toolbar" style="margin-top:10px;"><h3 style="margin:0;">읽은 신규 입주신청서 ${R.length}건 <span class="muted">(틔움 ${cnt('틔움')} · 키움 ${cnt('키움')} · 이룸 ${cnt('이룸')}${R.some(r => !r.track) ? ` · 트랙 미확인 ${R.filter(r => !r.track).length}` : ''})</span></h3></div>
+    <p class="muted" style="margin:4px 0;">${pdfState.files.map(escapeHtml).join('<br>')}</p>
+    ${pdfState.blank.length ? `<p class="pdf-warn">⚠ 글자가 없는 쪽(스캔 이미지 등): ${escapeHtml(pdfState.blank.join(' / '))} — 신청서가 이 쪽에 있다면 "스캔 PDF는 모든 쪽을 글자 인식"을 체크하고 다시 넣거나, 아래 표에 직접 추가하세요.</p>` : ''}
+    <p class="hint">칸을 눌러 바로 고칠 수 있습니다. "확인" 표시는 읽지 못한 칸입니다. 트랙·신청공간은 신청서의 <b>입주유형 체크 칸</b>(1인석·2인석=틔움, 3·4인실=키움, 7~13평형=이룸)으로 정합니다. 가점은 신청자가 체크한 항목이며 등록할 때 가점 칸에 반영됩니다(증빙 확인 후 "수정"에서 조정). 접수번호는 파일 이름 앞 숫자(예: 22531_기업명.pdf)로 채우며, 없으면 직접 입력하세요.</p>
+    <div style="overflow-x:auto;"><table><thead><tr><th>등록</th><th>연번</th><th>트랙</th>${NEW_PDF_COLS.map(([, l]) => `<th>${l}</th>`).join('')}<th>확인</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="${NEW_PDF_COLS.length + 4}" class="empty">신규 입주신청서(【제2호 서식】) 서식을 찾지 못했습니다.</td></tr>`}</tbody></table></div>
+    <div class="srv-row" style="margin-top:10px;">
+      <button type="button" class="secondary small" onclick="pdfAddRow()">+ 행 추가</button>
+      <button type="button" onclick="printPdfIntakeList()">🖨 접수리스트 출력</button>
+      <button type="button" class="secondary" onclick="exportPdfIntakeList()">엑셀 다운로드</button>
+      <button type="button" onclick="registerPdfIntake()">✔ 체크한 기업을 접수리스트에 등록</button>
+      <button type="button" class="secondary small" onclick="pdfState={recs:[],files:[],blank:[]};renderPdfResult();">지우기</button>
+    </div>
+    <div class="muted" id="pdfMsg" style="margin-top:6px;"></div>`;
+  box.querySelectorAll('[data-pi]').forEach(el => el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', () => {
+    const r = pdfState.recs[Number(el.dataset.pi)], k = el.dataset.pk;
+    r[k] = el.type === 'checkbox' ? el.checked : el.value.trim();
+    if(k === 'company'){ r.fromFileName = false; r.companyFromName = false; }
+    r.warn = newWarnings(r);
+    const w = $id('pdfWarn_' + el.dataset.pi);
+    if(w) w.textContent = newPdfWarnText(r);
+  }));
+}
+const NEW_PDF_ORDER = { 틔움:0, 키움:1, 이룸:2 };
+function newPdfSorted(){ return pdfState.recs.filter(r => r.sel).slice().sort((a, b) => ((NEW_PDF_ORDER[a.track] ?? 9) - (NEW_PDF_ORDER[b.track] ?? 9))); }
+function printNewPdfList(){
+  const list = newPdfSorted();
+  if(!list.length){ alert('출력할 기업이 없습니다. "등록" 칸을 체크하세요.'); return; }
+  const head = ['연번', '접수번호', '트랙', '신청공간', '기업명', '대표자', '창업아이템명', '창업구분', '연락처', '이메일', '가점 체크', '신청일'];
+  rpOpenPrintWindow('신규 신청 접수리스트', `<div class="sheet agg">
+    <h2>『${escapeHtml(rpSpaceName())}』 입주기업 신규 신청 접수리스트</h2>
+    <p class="meta">접수 ${list.length}건 &nbsp;|&nbsp; 출력일 : ${todayStr()}</p>
+    <table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${list.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.no || '')}</td><td>${escapeHtml(r.track || '')}</td><td>${escapeHtml(r.room || '')}</td>
+      <td class="left">${escapeHtml(r.company || '')}</td><td>${escapeHtml(r.ceo || '')}</td><td class="left">${escapeHtml(r.item || '')}</td><td>${escapeHtml(r.startType || '')}</td>
+      <td>${escapeHtml(r.phone || '')}</td><td>${escapeHtml(r.email || '')}</td><td class="left">${escapeHtml(r.bonusText || '')}</td><td>${escapeHtml(r.applyDate || '')}</td></tr>`).join('')}</tbody></table>
+    <div class="rp"><div class="signrow">${rpSign('작성자', '')}${rpSign('확인자', '')}</div></div>
+  </div>`, true);
+}
+function exportNewPdfList(){
+  const list = newPdfSorted();
+  if(!list.length){ alert('내보낼 기업이 없습니다. "등록" 칸을 체크하세요.'); return; }
+  const head = ['연번', '접수번호', '트랙', '신청공간', '기업명', '대표자', '신청자(성명)', '창업아이템명', '창업구분', '창업(예정)일', '분야', '사업자등록번호', '법인등록번호', '주생산품', '본사 주소', '회사 전화', '연락처', '이메일', '가점 체크(신청서)', '신청일', '원본 파일'];
+  const rows = list.map((r, i) => [i + 1, r.no || '', r.track || '', r.room || '', r.company || '', r.ceo || '', r.applicant || '', r.item || '', r.startType || '', r.startDate || '', r.field || '',
+    r.bizNo || '', r.corpNo || '', r.product || '', r.addr || '', r.tel || '', r.phone || '', r.email || '', r.bonusText || '', r.applyDate || '', r.file || '']);
+  downloadBlob(buildXlsxBlob('신규_접수리스트', [head].concat(rows)), `신규_신청_접수리스트_${todayStr()}.xlsx`);
+}
+// 신청서 체크 → 앱의 트랙별 가점 칸(여성·장애인은 이룸에서 따로 나뉘어 있어 자동 체크하지 않고 메모로)
+function newBonusFor(track, keys){
+  const out = {}, valid = getBonusListForExam('신규', track).map(b => b.key), notes = [];
+  (keys || []).forEach(k => {
+    if(valid.includes(k)) out[k] = true;
+    else if(k === 'women_disabled' && track === '이룸') notes.push('여성·장애인기업 체크(여성/장애인 구분 확인)');
+  });
+  return { bonus: out, notes };
+}
+function registerNewPdfIntake(){
+  const list = pdfState.recs.filter(r => r.sel);
+  if(!list.length){ alert('등록할 기업이 없습니다. "등록" 칸을 체크하세요.'); return; }
+  const bad = list.filter(r => !r.company || !r.ceo || !EXAM_TRACKS.신규.includes(r.track));
+  if(bad.length){ alert('기업명·대표자·트랙(틔움/키움/이룸)을 확인하세요.\n- ' + bad.map(r => r.company || '(기업명 없음)').join('\n- ')); return; }
+  let added = 0, updated = 0;
+  list.forEach(r => {
+    const bf = newBonusFor(r.track, r.bonusKeys);
+    const apply = { bizNo: r.bizNo || '', corpNo: r.corpNo || '', addr: r.addr || '', tel: r.tel || '', startType: r.startType || '', startDate: r.startDate || '',
+      field: r.field || '', product: r.product || '', bonusClaim: r.bonusText || '', applyDate: r.applyDate || '' };
+    const memo = ['신청서 가점 체크: ' + (r.bonusText || '없음')].concat(bf.notes).join(' / ');
+    const ex = DB.applicants.find(a => !a._srv && applicantExamType(a) === '신규' && pdfKey(a.company) === pdfKey(r.company) && String(a.ceo).replace(/\s/g, '') === String(r.ceo).replace(/\s/g, ''));
+    const fields = { track: r.track, room: r.room || '', item: r.item || '', phone: r.phone || '', email: r.email || '', apply };
+    if(r.no) fields.no = r.no;
+    if(ex){
+      // 이미 있는 기업: 담당자가 고친 가점·메모는 그대로 두고, 가점이 하나도 없을 때만 신청서 체크를 반영
+      if(!Object.values(ex.bonus || {}).some(Boolean)) fields.bonus = bf.bonus;
+      if(!ex.memo) fields.memo = memo;
+      Object.assign(ex, fields); updated++;
+    } else {
+      DB.applicants.push(Object.assign({ id: nextId(), examType: '신규', no: '', company: r.company, ceo: r.ceo, bonus: bf.bonus, penalties: [], memo, createdAt: new Date().toISOString() }, fields));
+      added++;
+    }
+  });
+  saveDB();
+  renderApplicantTable();
+  renderApplicantOptions();
+  $id('pdfMsg').innerHTML = `✅ 신규 ${list.length}건을 접수리스트에 반영했습니다(새로 등록 ${added}건, 기존 기업 갱신 ${updated}건). 가점은 신청서 체크 기준이니 증빙 확인 후 아래 목록의 "수정"에서 조정하세요.`;
 }
 const PDF_COLS = [
   ['company', '기업명', 9], ['ceo', '대표자', 5], ['room', '호실', 6], ['item', '주 생산품', 9], ['bizNo', '사업자등록번호', 8],
@@ -3955,6 +4243,8 @@ const PDF_COLS = [
 function pdfWarnText(r){ return (r.ocr ? '🔍 스캔 글자 인식 — 원본과 대조 필요' + (r.warn.length ? ' · ' : '') : '') + (r.warn.length ? '확인: ' + r.warn.join(', ') : (r.ocr ? '' : '✅')); }
 function renderPdfResult(){
   const box = $id('pdfResult');
+  if(pdfState.mode && pdfState.mode !== (pdfNewMode() ? "신규" : "rp")) pdfState = { recs: [], files: [], blank: [] };   // 다른 분류 탭에서 읽은 결과는 지움
+  if(pdfNewMode() && pdfState.files.length){ renderNewPdfResult(box); return; }
   const R = pdfState.recs;
   if(!pdfState.files.length){ box.innerHTML = ''; return; }
   const nRenew = R.filter(r => r.exam === '연장').length, nPromo = R.filter(r => r.exam === '승급').length;
@@ -3995,6 +4285,13 @@ function renderPdfResult(){
   }));
 }
 function pdfAddRow(){
+  if(pdfNewMode()){
+    const n = { exam: "신규", track: "", sel: true, file: "(직접 입력)", bonusKeys: [] };
+    NEW_PDF_COLS.forEach(([k]) => { n[k] = ""; });
+    n.warn = newWarnings(n); pdfState.recs.push(n); pdfState.mode = "신규";
+    if(!pdfState.files.length) pdfState.files.push("(직접 입력)");
+    renderPdfResult(); return;
+  }
   const r = { exam: currentExamType === '승급' ? '승급' : '연장', track: '', targetTrack: '', sel: true, file: '(직접 입력)' };
   PDF_COLS.forEach(([k]) => { r[k] = ''; });
   r.warn = pdfWarnings(r);
@@ -4007,6 +4304,7 @@ function pdfSortedForList(){
   return pdfState.recs.filter(r => r.sel).slice().sort((a, b) => (order[a.exam] - order[b.exam]) || ((tr[a.track] ?? 9) - (tr[b.track] ?? 9)));
 }
 function printPdfIntakeList(){
+  if(pdfNewMode()) return printNewPdfList();
   const list = pdfSortedForList();
   if(!list.length){ alert('출력할 기업이 없습니다. "등록" 칸을 체크하세요.'); return; }
   printIntakeRecs(list);
@@ -4029,6 +4327,7 @@ function printIntakeRecs(list){
   rpOpenPrintWindow(`${exams.join('·')} 신청 접수리스트`, section('연장') + section('승급'), true);
 }
 function exportPdfIntakeList(){
+  if(pdfNewMode()) return exportNewPdfList();
   const list = pdfSortedForList();
   if(!list.length){ alert('내보낼 기업이 없습니다. "등록" 칸을 체크하세요.'); return; }
   exportIntakeRecs(list, `연장승급_신청_접수리스트_${todayStr()}.xlsx`);
@@ -4079,6 +4378,7 @@ function printRegisteredList(){
   </div>`, true);
 }
 function registerPdfIntake(){
+  if(pdfNewMode()) return registerNewPdfIntake();
   const list = pdfState.recs.filter(r => r.sel);
   if(!list.length){ alert('등록할 기업이 없습니다. "등록" 칸을 체크하세요.'); return; }
   const bad = list.filter(r => !r.company || !r.ceo || !(EXAM_TRACKS[r.exam] || []).includes(r.track) || (r.exam === '승급' && !(PROMO_TARGETS[r.track] || []).includes(r.targetTrack)));
