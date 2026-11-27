@@ -1618,7 +1618,7 @@ function renderEvalForm(){
   const bVal = bonusSum - penaltySum;
 
   let html = `<h3>${applicant.track} ${round}차 평가표 — ${escapeHtml(applicant.company)} (${escapeHtml(applicant.ceo)})</h3>`;
-  html += `<table class="score-table"><thead><tr><th style="width:16%;">평가항목</th><th>세부기준</th><th style="width:8%;">배점</th><th style="width:10%;">평점</th><th style="width:22%;">특이사항</th></tr></thead><tbody>`;
+  html += `<table class="score-table"><thead><tr><th style="width:16%;">평가항목</th><th>세부기준</th><th style="width:8%;">배점</th><th style="width:10%;">평점</th><th style="width:22%;">평가의견</th></tr></thead><tbody>`;
 
   rubric.groups.forEach(g=>{
     if(g.single){
@@ -1627,7 +1627,7 @@ function renderEvalForm(){
         <td class="left"><ul class="desc-list">${g.desc.map(d=>`<li>${d}</li>`).join('')}</ul></td>
         <td>${g.max}</td>
         <td><input type="number" min="0" max="${g.max}" step="1" data-key="${g.key}" data-max="${g.max}" class="score-input"></td>
-        <td><textarea data-note="${g.key}" class="note-input" placeholder="특이사항 (Enter로 줄바꿈 가능)" rows="1"></textarea></td>
+        <td><textarea data-note="${g.key}" class="note-input" placeholder="평가의견 (Enter로 줄바꿈 가능)" rows="1"></textarea></td>
       </tr>`;
     } else {
       g.items.forEach((it, i)=>{
@@ -1639,7 +1639,7 @@ function renderEvalForm(){
           <td class="left">${it.label}</td>
           <td>${it.max}</td>
           <td><input type="number" min="0" max="${it.max}" step="1" data-key="${it.key}" data-max="${it.max}" class="score-input" data-group="${g.key}"></td>
-          <td><textarea data-note="${it.key}" class="note-input" placeholder="특이사항 (Enter로 줄바꿈 가능)" rows="1"></textarea></td>
+          <td><textarea data-note="${it.key}" class="note-input" placeholder="평가의견 (Enter로 줄바꿈 가능)" rows="1"></textarea></td>
         </tr>`;
       });
       html += `<tr>
@@ -2202,7 +2202,7 @@ function buildEvalSheetHTML(applicant, evaluation, round){
     <h2>『경기창업혁신공간 남부권(수원)』 ${applicant.track} 신규입주 심사평가표(${round}차)</h2>
     <table class="info"><tr><td class="lbl">기업명</td><td>${escapeHtml(applicant.company)}</td><td class="lbl">대표명</td><td>${escapeHtml(applicant.ceo)}</td></tr></table>
     <table class="main">
-      <thead><tr><th>평가항목</th><th>세부기준</th><th>배점</th><th>평점</th><th>특이사항</th></tr></thead>
+      <thead><tr><th>평가항목</th><th>세부기준</th><th>배점</th><th>평점</th><th>평가의견</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot>
         <tr><td colspan="2" class="left"><b>합계(A)</b></td><td>${rubric.totalA}</td><td colspan="2"><b>${totalA}</b></td></tr>
@@ -2608,7 +2608,7 @@ function renderLevelEvalForm(applicant, rubric, round, area){
   let html = `<h3>${EXAM_LABEL[exam]} 2차 발표평가표 (${trackTxt}) — ${escapeHtml(applicant.company)} (${escapeHtml(applicant.ceo)})</h3>`;
   html += `<p class="hint">세부항목마다 해당하는 등급을 하나씩 누르세요. 모든 항목을 선택해야 저장됩니다.</p>`;
   html += `<div style="overflow-x:auto;"><table class="score-table level-table"><thead>
-    <tr><th rowspan="2" style="width:11%;">항목</th><th rowspan="2">세부항목</th><th colspan="5">배점기준</th><th rowspan="2" style="width:8%;">평가점수</th><th rowspan="2" style="width:18%;">특이사항</th></tr>
+    <tr><th rowspan="2" style="width:11%;">항목</th><th rowspan="2">세부항목</th><th colspan="5">배점기준</th><th rowspan="2" style="width:8%;">평가점수</th><th rowspan="2" style="width:18%;">평가의견</th></tr>
     <tr>${LEVEL_NAMES.map(n => `<th class="lv-head">${n}</th>`).join('')}</tr></thead><tbody>`;
   rubric.groups.forEach(g => {
     g.items.forEach((it, i) => {
@@ -2619,7 +2619,7 @@ function renderLevelEvalForm(applicant, rubric, round, area){
         html += `<td class="lv-cell"><label title="${LEVEL_NAMES[li]}"><input type="radio" name="lv_${it.key}" value="${v}" data-key="${it.key}"><span>${v}</span></label></td>`;
       });
       html += `<td><input type="hidden" class="score-input" data-key="${it.key}" data-group="${g.key}" data-max="${it.max}" data-level="1" data-label="${g.name} - ${it.label}" value=""><b id="lvscore_${it.key}">-</b></td>`;
-      html += `<td><textarea data-note="${it.key}" class="note-input" placeholder="특이사항" rows="1"></textarea></td></tr>`;
+      html += `<td><textarea data-note="${it.key}" class="note-input" placeholder="평가의견" rows="1"></textarea></td></tr>`;
     });
     html += `<tr><td class="left"><b>소계</b></td><td colspan="5"></td><td><span id="subtotal_${g.key}">0</span> / ${g.max}</td><td></td></tr>`;
   });
